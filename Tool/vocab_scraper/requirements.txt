@@ -1,5 +1,0 @@
-httpx
-sqlalchemy
-aiosqlite
-pydantic-settings
-greenlet

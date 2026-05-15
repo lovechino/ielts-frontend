@@ -1,1 +1,0 @@
-# Vocabulary Scraper Tool Package
