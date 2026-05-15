@@ -1,52 +1,43 @@
-# 🎨 IELTS Learning Platform - Frontend (Next.js)
+<body>
+  <center>
+    <h1 align="center">~ 🎨 𝓘𝓔𝓛𝓣𝓢 𝓕𝓻𝓸𝓷𝓽𝓮𝓷𝓭 🎨 ~</h1>
+    <br>
+    <div align="center">
+      <img src="https://i.pinimg.com/originals/8d/4b/77/8d4b77c44b7a68c0fd609411e2c0ec3c.gif" width="200" />
+      <br>
+      <p>𝒯𝒽𝑒 𝒷𝑒𝒶𝓊𝓉𝒾𝒻𝓊𝓁 𝒻𝒶𝒸𝑒 𝑜𝒻 𝑜𝓊𝓇 𝒜𝐼 𝐿𝑒𝒶𝓇𝓃𝒾𝓃𝑔 𝒫𝓁𝒶𝓉𝓻𝑜𝓇𝓂</p>
+    </div>
 
-Giao diện người dùng hiện đại, tương tác cao cho nền tảng học IELTS, được tối ưu hóa cho trải nghiệm học tập và ôn luyện 4 kỹ năng.
+    <hr>
 
-## 🛠 Tech Stack
+    <div align="center">
+      <h2 align="center"> ✨ ~ 𝓕𝓮𝓪𝓽𝓾𝓻𝓮𝓼 ~ ✨ </h2>
+      <li align="left"><b>Interactive UI:</b> Trải nghiệm làm bài thi chuyên nghiệp.</li>
+      <li align="left"><b>AI Feedback:</b> Nhận xét chi tiết ngay lập tức qua Modal.</li>
+      <li align="left"><b>Vocab Master:</b> Hệ thống Flashcards & Quiz thông minh.</li>
+    </div>
 
-- **Framework:** [Next.js 15](https://nextjs.org/) (App Router).
-- **Styling:** [Tailwind CSS](https://tailwindcss.com/).
-- **State Management:** React Hooks & Context API.
-- **Icons:** [Lucide React](https://lucide.dev/).
-- **Animation:** CSS Transitions & Framer Motion (nếu có).
-- **Data Fetching:** Axios.
+    <div align="center">
+      <h2 align="center"> 🛠 ~ 𝓣𝓮𝓬𝓱𝓷𝓸𝓵𝓸𝓰𝔂 ~ 🛠 </h2>
+      <br>
+      <img src="https://img.shields.io/badge/React-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB"/>
+      <img src="https://img.shields.io/badge/Next.js-black?style=for-the-badge&logo=next.js&logoColor=white"/>
+      <img src="https://img.shields.io/badge/TailwindCSS-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white"/>
+      <img src="https://img.shields.io/badge/Lucide-pink?style=for-the-badge&logo=lucide&logoColor=white"/>
+    </div>
 
-## ✨ Tính Năng Nổi Bật
+    <br>
+    <div align="center">
+      <h2 align="center">🚀 ~ 𝓠𝓾𝓲𝓬𝓴 𝓢𝓽𝓪𝓻𝓽 ~ 🚀</h2>
+      <code>npm install</code><br>
+      <code>npm run dev</code>
+    </div>
 
-- **Interactive Lessons:** Hỗ trợ đầy đủ Reading, Writing với giao diện làm bài chuyên nghiệp.
-- **AI Feedback System:** Tích hợp Modal xem điểm và nhận xét chi tiết từ AI.
-- **Vocabulary Manager:** Hệ thống học từ vựng thông minh (Flashcards, Quiz).
-- **Admin Dashboard:** Quản lý khóa học, bài học và câu hỏi trực quan.
-
-## 📂 Cấu Trúc Thư Mục
-
-- `src/app/`: Cấu trúc routing và các trang chính (Dashboard, Lessons, Admin).
-- `src/components/`: Các UI components dùng chung và các component đặc thù cho bài học (Lesson, WritingSection, etc.).
-- `src/lib/`: Cấu trúc API client và các hàm tiện ích.
-- `public/`: Chứa các tài nguyên tĩnh (Images, Fonts).
-
-## 🚀 Hướng Dẫn Chạy Local
-
-1. **Cài đặt thư viện:**
-   ```bash
-   npm install
-   ```
-
-2. **Cấu hình môi trường:**
-   Tạo file `.env.local` và điền URL của API:
-   ```env
-   NEXT_PUBLIC_API_URL=http://localhost:8787/api/v1
-   ```
-
-3. **Chạy server phát triển:**
-   ```bash
-   npm run dev
-   ```
-
-## 🏗 Build & Deploy
-
-- Build cho production: `npm run build`
-- Deploy: Phù hợp nhất khi triển khai trên **Vercel** hoặc **Cloudflare Pages**.
-
----
-*Phát triển bởi IELTS AI Team*
+    <br>
+    <hr>
+    <div align="center">
+      <h2 align="center">🦊 ~ 𝓔𝓷𝓳𝓸𝔂 𝓒𝓸𝓭𝓲𝓷𝓰! ~ 🦊</h2>
+      <img src="https://i.pinimg.com/originals/8a/a5/d8/8aa5d800938b8d0c7f0709b305335f61.gif" width="250">
+    </div>
+  </center>
+</body>
