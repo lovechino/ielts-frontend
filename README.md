@@ -7,6 +7,23 @@
 ---
 
 <div align="center">
+  <h2> 📂 ~ 𝓢𝓽𝓻𝓾𝓬𝓽𝓾𝓻𝓮 ~ 📂 </h2>
+</div>
+
+- 📁 **`app/`**: Trái tim của ứng dụng (Next.js App Router).
+  - `admin/`: Quản lý khóa học và người dùng.
+  - `courses/` & `lessons/`: Giao diện học tập và danh sách bài học.
+  - `vocabulary/`: Hệ thống học từ vựng thông minh.
+- 📁 **`components/`**: Các mảnh ghép UI tái sử dụng.
+  - `lesson/`: Các section riêng cho Writing, Reading, Listening.
+  - `ui/`: Các thành phần giao diện cơ bản (Button, Modal, Input).
+- 📁 **`lib/`**: Nơi chứa "vũ khí" hỗ trợ.
+  - `api.ts`: Client giao tiếp với Backend.
+  - `utils.ts`: Các hàm bổ trợ xử lý dữ liệu.
+
+---
+
+<div align="center">
   <h2> ✨ ~ 𝓕𝓮𝓪𝓽𝓾𝓻𝓮𝓼 ~ ✨ </h2>
   <p align="left">🔹 <b>Interactive UI:</b> Trải nghiệm làm bài thi chuyên nghiệp.</p>
   <p align="left">🔹 <b>AI Feedback:</b> Nhận xét chi tiết ngay lập tức qua Modal.</p>
@@ -18,7 +35,6 @@
   <img src="https://img.shields.io/badge/React-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB"/>
   <img src="https://img.shields.io/badge/Next.js-black?style=for-the-badge&logo=next.js&logoColor=white"/>
   <img src="https://img.shields.io/badge/TailwindCSS-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Lucide-pink?style=for-the-badge&logo=lucide&logoColor=white"/>
 </div>
 
 <div align="center">
