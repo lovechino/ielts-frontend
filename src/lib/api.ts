@@ -1,8 +1,10 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+import { bearerHeaders, setAccessToken } from './auth-token';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8787/api/v1';
 
 // TTL constants (in seconds) — used with next.js fetch revalidation
 const TTL_STATIC = 300;   // 5 min — courses, lessons (read-heavy, rarely changes)
-const TTL_VOCAB  = 3600;  // 1 hour — vocabulary (extremely static)
+const TTL_VOCAB = 3600;  // 1 hour — vocabulary (extremely static)
 
 /**
  * Base fetcher — dynamic data only (progress, submissions, auth).
@@ -18,6 +20,7 @@ export async function fetcher<T = unknown>(endpoint: string, options: RequestIni
     cache: 'no-store',
   });
 
+   
   return handleResponse<T>(res);
 }
 
@@ -140,6 +143,14 @@ export const api = {
     create: (data: Partial<Course>) => fetcher<Course>('/courses/', { method: 'POST', body: JSON.stringify(data) }),
     createLesson: (courseId: string, data: Partial<Lesson> | Partial<Lesson>[]) => fetcher<Lesson | Lesson[]>(`/courses/${courseId}/lessons`, { method: 'POST', body: JSON.stringify(data) }),
     updateLesson: (lessonId: string, data: Partial<Lesson>) => fetcher<Lesson>(`/courses/lessons/${lessonId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    enroll: (courseId: string, token: string) => fetcher<{ id: string, status: string }>(`/courses/${courseId}/enroll`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    }),
+    checkEnrollment: (courseId: string, token: string) => fetcher<{ enrolled: boolean, status?: string }>(`/courses/${courseId}/enroll-status`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` }
+    }),
   },
   lessons: {
     get: (id: string) => cachedFetcher<Lesson>(`/courses/lessons/${id}`, TTL_STATIC),
@@ -155,7 +166,7 @@ export const api = {
     questionGroups: (lessonId: string) => cachedFetcher<QuestionGroup[]>(`/courses/lessons/${lessonId}/question-groups`, TTL_STATIC),
 
     // AI
-    autoGenerate: (lessonId: string, rawText: string) => fetcher<{ job_id: string }> (`/courses/lessons/${lessonId}/auto-generate`, { method: 'POST', body: JSON.stringify({ raw_text: rawText }) }),
+    autoGenerate: (lessonId: string, rawText: string) => fetcher<{ job_id: string }>(`/courses/lessons/${lessonId}/auto-generate`, { method: 'POST', body: JSON.stringify({ raw_text: rawText }) }),
   },
   tests: {
     list: (type?: 'mini' | 'full') => cachedFetcher<Lesson[]>(`/tests${type ? `?type=${type}` : ''}`, TTL_STATIC),
@@ -182,12 +193,23 @@ export const api = {
     if (!res.ok) throw new Error("Upload failed");
     return res.json();
   },
-  // Progress is always dynamic — no caching
+  // Progress is always dynamic — no caching (requires JWT; user from token)
   progress: {
-    get: (lessonId: string, userId?: string) => fetcher<unknown>(`/progress/${lessonId}${userId ? `?user_id=${userId}` : ''}`),
-    saveDraft: (data: { lesson_id: string, draft_answers: Record<string, unknown>, time_left: number, status?: string, user_id?: string }) => fetcher<unknown>('/progress/save-draft', { method: 'POST', body: JSON.stringify(data) }),
-    submit: (data: { lesson_id: string, answers: unknown[], user_id?: string }) => fetcher<unknown>('/progress/submit', { method: 'POST', body: JSON.stringify(data) }),
-    mine: () => fetcher<unknown[]>('/progress/me'),
+    get: (lessonId: string) =>
+      fetcher<unknown>(`/progress/${lessonId}`, { headers: bearerHeaders() }),
+    saveDraft: (data: { lesson_id: string; draft_answers: Record<string, unknown>; time_left: number; status?: string }) =>
+      fetcher<unknown>('/progress/save-draft', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: bearerHeaders(),
+      }),
+    submit: (data: { lesson_id: string; answers: unknown[] }) =>
+      fetcher<unknown>('/progress/submit', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: bearerHeaders(),
+      }),
+    mine: () => fetcher<unknown[]>('/progress/me', { headers: bearerHeaders() }),
   },
   jobs: {
     get: (id: string) => fetcher<{ data: Job }>(`/jobs/${id}`),
@@ -202,5 +224,25 @@ export const api = {
       };
       return poll();
     }
+  },
+  auth: {
+    login: async (data: any) => {
+      const res = await fetcher<{ token: string; user: unknown }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      if (typeof window !== 'undefined' && res?.token) setAccessToken(res.token);
+      return res;
+    },
+    register: (data: any) => fetcher<{ id: string, email: string, full_name: string }>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+    me: (token: string) => fetcher<{ id: string, email: string, full_name: string, role: string, avatar_url?: string, target_band?: number, ai_persona?: string }>('/auth/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    }),
+    updateProfile: (data: any, token: string) => fetcher<{ id: string }>('/auth/me', {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data)
+    }),
   }
 };
+

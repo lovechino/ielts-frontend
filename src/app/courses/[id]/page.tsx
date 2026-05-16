@@ -1,5 +1,6 @@
 import { api, Lesson } from '@/lib/api';
 import Link from 'next/link';
+import { EnrollButton } from '@/components/course/EnrollButton';
 
 interface CoursePageProps {
   params: Promise<{ id: string }>;
@@ -67,6 +68,9 @@ export default async function CourseDetailPage({ params }: CoursePageProps) {
             </span>
             <h1 className="text-4xl font-black text-gray-900 mb-4">{course.title}</h1>
             <p className="text-gray-500 text-lg max-w-2xl">{course.description}</p>
+          </div>
+          <div className="flex-shrink-0">
+            <EnrollButton courseId={id} />
           </div>
         </div>
 

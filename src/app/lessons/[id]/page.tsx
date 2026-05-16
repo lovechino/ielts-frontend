@@ -35,11 +35,16 @@ export default function LessonExamPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [lessonData, questionsData, progressData] = await Promise.all([
+        const [lessonData, questionsData] = await Promise.all([
           api.lessons.get(id),
           api.lessons.questions(id),
-          api.progress.get(id),
         ]);
+        let progressData: unknown = null;
+        try {
+          progressData = await api.progress.get(id);
+        } catch {
+          progressData = null;
+        }
         setLesson(lessonData);
         setQuestions(questionsData);
         applyProgress(progressData as Record<string, unknown> | null, lessonData);
