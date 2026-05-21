@@ -23,7 +23,8 @@ export default function AdminTestsPage() {
     time_limit: 60,
     lesson_type: 'reading',
     content: '',
-    pdf_url: ''
+    pdf_url: '',
+    speaking_part: null as number | null
   });
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -101,7 +102,8 @@ export default function AdminTestsPage() {
     try {
       // 1. Create the Lesson
       const lessonResult = await api.courses.createLesson(defaultCourseId, { 
-        ...newTest, 
+        ...newTest,
+        speaking_part: newTest.speaking_part ?? undefined,
         is_test: true,
         course_id: defaultCourseId 
       });
@@ -126,6 +128,21 @@ export default function AdminTestsPage() {
       alert("Failed to create test: " + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteTest = async (testId: string) => {
+    if (!confirm('Are you sure you want to delete this test? This action cannot be undone and will delete all associated questions and passages.')) {
+      return;
+    }
+    
+    try {
+      await api.lessons.delete(testId);
+      // Remove from UI state
+      setTests(tests.filter(t => t.id !== testId));
+    } catch (err: unknown) {
+      const error = err as Error;
+      alert("Failed to delete test: " + error.message);
     }
   };
 
@@ -169,17 +186,45 @@ export default function AdminTestsPage() {
                 </select>
               </div>
               {newTest.test_type === 'mini' && (
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Skill</label>
-                  <select 
-                    value={newTest.lesson_type} onChange={e => setNewTest({...newTest, lesson_type: e.target.value as 'reading' | 'listening' | 'writing' | 'speaking'})}
-                    className="w-full px-5 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-medium"
-                  >
-                    <option value="reading">Reading</option>
-                    <option value="listening">Listening</option>
-                    <option value="writing">Writing</option>
-                    <option value="speaking">Speaking</option>
-                  </select>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Skill</label>
+                    <select 
+                      value={newTest.lesson_type} onChange={e => {
+                        const type = e.target.value;
+                        setNewTest({
+                          ...newTest, 
+                          lesson_type: type as 'reading' | 'listening' | 'writing' | 'speaking',
+                          speaking_part: type === 'speaking' ? 1 : null
+                        });
+                      }}
+                      className="w-full px-5 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-medium"
+                    >
+                      <option value="reading">Reading</option>
+                      <option value="listening">Listening</option>
+                      <option value="writing">Writing</option>
+                      <option value="speaking">Speaking</option>
+                    </select>
+                  </div>
+                  
+                  {newTest.lesson_type === 'speaking' && (
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Speaking Part</label>
+                      <select 
+                        required
+                        value={newTest.speaking_part || ''} 
+                        onChange={e => {
+                          const val = parseInt(e.target.value);
+                          setNewTest({...newTest, speaking_part: isNaN(val) ? null : val});
+                        }}
+                        className="w-full px-5 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-800"
+                      >
+                        <option value="1">Part 1 - Introduction & Interview</option>
+                        <option value="2">Part 2 - Cue Card (Individual)</option>
+                        <option value="3">Part 3 - Discussion (Abstract)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
               <div>
@@ -255,7 +300,9 @@ export default function AdminTestsPage() {
                     </span>
                     {test.test_type === 'mini' ? (
                       <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-600">
-                        {test.lesson_type}
+                        {test.lesson_type === 'speaking' && test.speaking_part 
+                          ? `Speaking - Part ${test.speaking_part}` 
+                          : test.lesson_type}
                       </span>
                     ) : (
                       <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600">
@@ -276,6 +323,15 @@ export default function AdminTestsPage() {
                 >
                   Edit Content & AI Builder &rarr;
                 </Link>
+                <button
+                  onClick={() => handleDeleteTest(test.id)}
+                  className="bg-red-50 text-red-600 px-4 py-2 rounded-xl font-black text-sm hover:bg-red-600 hover:text-white transition-all"
+                  title="Delete Test"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </button>
               </div>
             </div>
           ))

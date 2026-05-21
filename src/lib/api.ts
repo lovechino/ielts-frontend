@@ -69,13 +69,26 @@ export interface Course {
   price: number;
 }
 
+export interface VocabularyCourse {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string;
+  thumbnail_url?: string;
+  structure_type?: 'cefr_levels' | 'direct_topics';
+}
+
 export interface Vocabulary {
   id: string;
+  vocab_course_id?: string;
   word: string;
   definition: string;
+  definition_vi?: string;
   example?: string;
+  example_vi?: string;
   topic?: string;
   pronunciation?: string;
+  part_of_speech?: string;
   synonyms?: string[];
   antonyms?: string[];
   level?: string;
@@ -92,6 +105,7 @@ export interface Lesson {
   time_limit?: number;
   is_test?: boolean;
   test_type?: 'mini' | 'full' | 'practice';
+  speaking_part?: number;
   passages?: Passage[];
   question_groups?: QuestionGroup[];
 }
@@ -122,6 +136,7 @@ export interface Question {
   correct_answer?: string;
   lesson_id: string;
   group_id?: string;
+  scoring_criteria?: string;
 }
 
 export interface Job {
@@ -154,6 +169,7 @@ export const api = {
   },
   lessons: {
     get: (id: string) => cachedFetcher<Lesson>(`/courses/lessons/${id}`, TTL_STATIC),
+    delete: (id: string) => fetcher<{ deleted: boolean }>(`/courses/lessons/${id}`, { method: 'DELETE' }),
     questions: (id: string) => cachedFetcher<Question[]>(`/courses/lessons/${id}/questions`, TTL_STATIC),
     createQuestion: (lessonId: string, data: Partial<Question>) => fetcher<Question>(`/courses/lessons/${lessonId}/questions`, { method: 'POST', body: JSON.stringify(data) }),
 
@@ -173,15 +189,30 @@ export const api = {
   },
   vocabulary: {
     // F1: Vocabulary is extremely static — cache 1 hour
-    list: (params?: { level?: string; topic?: string; offset?: number; limit?: number }) => {
+    list: (params?: { level?: string; topic?: string; vocab_course_id?: string; offset?: number; limit?: number }) => {
       const searchParams = new URLSearchParams();
       if (params?.level) searchParams.append('level', params.level);
       if (params?.topic) searchParams.append('topic', params.topic);
+      if (params?.vocab_course_id) searchParams.append('vocab_course_id', params.vocab_course_id);
       if (params?.offset) searchParams.append('offset', params.offset.toString());
       if (params?.limit) searchParams.append('limit', params.limit.toString());
       return cachedFetcher<Vocabulary[]>(`/vocabulary/?${searchParams.toString()}`, TTL_VOCAB);
     },
     get: (word: string) => cachedFetcher<Vocabulary>(`/vocabulary/${word}`, TTL_VOCAB),
+
+    // Courses
+    listCourses: () => cachedFetcher<VocabularyCourse[]>('/vocabulary/courses', TTL_VOCAB),
+    createCourse: (data: Partial<VocabularyCourse>) => fetcher<VocabularyCourse>('/vocabulary/courses', { method: 'POST', body: JSON.stringify(data) }),
+    updateCourse: (id: string, data: Partial<VocabularyCourse>) => fetcher<VocabularyCourse>(`/vocabulary/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteCourse: (id: string) => fetcher<{ success: boolean }>(`/vocabulary/courses/${id}`, { method: 'DELETE' }),
+
+    // Admin vocab operations
+    upsert: (data: Partial<Vocabulary>) => fetcher<Vocabulary>('/vocabulary/', { method: 'POST', body: JSON.stringify(data) }),
+    delete: (id: string) => fetcher<{ success: boolean }>(`/vocabulary/${id}`, { method: 'DELETE' }),
+    bulkImport: (vocab_course_id: string, words: Partial<Vocabulary>[]) => fetcher<{ count: number }>('/vocabulary/bulk-import', {
+      method: 'POST',
+      body: JSON.stringify({ vocab_course_id, words }),
+    }),
   },
   upload: async (file: File) => {
     const formData = new FormData();
@@ -212,11 +243,10 @@ export const api = {
     mine: () => fetcher<unknown[]>('/progress/me', { headers: bearerHeaders() }),
   },
   jobs: {
-    get: (id: string) => fetcher<{ data: Job }>(`/jobs/${id}`),
+    get: (id: string) => fetcher<Job>(`/jobs/${id}`),
     waitForJob: async (id: string, onProgress?: (job: Job) => void): Promise<Job> => {
       const poll = async (): Promise<Job> => {
-        const res = await api.jobs.get(id);
-        const job = res.data;
+        const job = await api.jobs.get(id);
         if (onProgress) onProgress(job);
         if (job.status === 'completed' || job.status === 'failed') return job;
         await new Promise(r => setTimeout(r, 2000));
@@ -227,7 +257,7 @@ export const api = {
   },
   auth: {
     login: async (data: any) => {
-      const res = await fetcher<{ token: string; user: unknown }>('/auth/login', {
+      const res = await fetcher<{ token: string; user: any }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify(data),
       });

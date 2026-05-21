@@ -11,7 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'Dashboard', href: '/admin' },
     { label: 'Course Management', href: '/admin/courses' },
     { label: 'Test Management', href: '/admin/tests' },
-    { label: 'Question Bank', href: '/admin/questions' },
+    { label: 'Vocabulary', href: '/admin/vocabulary' },
   ];
 
   return (

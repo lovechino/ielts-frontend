@@ -48,7 +48,16 @@ export default function AdminQuestionBuilderPage() {
       
       // Auto select first group if available
       if (lessonData?.question_groups && lessonData.question_groups.length > 0) {
-        setQuestionData(prev => ({ ...prev, group_id: lessonData.question_groups![0].id }));
+        setQuestionData(prev => ({ 
+          ...prev, 
+          group_id: lessonData.question_groups![0].id,
+          question_type: lessonData.lesson_type || 'reading'
+        }));
+      } else {
+        setQuestionData(prev => ({ 
+          ...prev, 
+          question_type: lessonData?.lesson_type || 'reading'
+        }));
       }
     } catch (err) {
       console.error(err);
@@ -117,7 +126,7 @@ export default function AdminQuestionBuilderPage() {
     e.preventDefault();
     try {
       let formattedOptions = undefined;
-      if (groupData.group_type === 'MULTIPLE_CHOICE' || !groupData.group_type) {
+      if (lesson?.lesson_type !== 'speaking' && (groupData.group_type === 'MULTIPLE_CHOICE' || !groupData.group_type)) {
         formattedOptions = optionInputs.reduce((acc, opt) => {
           if (opt.value.trim()) acc[opt.key] = opt.value;
           return acc;
@@ -132,7 +141,12 @@ export default function AdminQuestionBuilderPage() {
 
       await api.lessons.createQuestion(lessonId, payload as unknown as Partial<Question>);
       setShowQuestionForm(false);
-      setQuestionData(prev => ({ ...prev, content: '', correct_answer: '' }));
+      setQuestionData(prev => ({ 
+        ...prev, 
+        content: '', 
+        correct_answer: '', 
+        scoring_criteria: '' 
+      }));
       loadData();
     } catch {
       alert("Failed to create question");
@@ -283,7 +297,10 @@ export default function AdminQuestionBuilderPage() {
                   {lesson.passages?.map(p => (
                     <div key={p.id} className="p-4 border rounded-xl bg-white shadow-sm">
                       <h3 className="font-bold text-slate-900">{p.title}</h3>
-                      <p className="text-sm text-slate-500 line-clamp-3 mt-1 italic">{p.content_html}</p>
+                      <div 
+                        className="text-sm text-slate-500 mt-1 italic prose prose-sm prose-slate max-w-none"
+                        dangerouslySetInnerHTML={{ __html: p.content_html || '' }}
+                      />
                     </div>
                   ))}
                   {lesson.passages?.length === 0 && <p className="text-slate-400 text-sm">No passages yet.</p>}
@@ -309,15 +326,26 @@ export default function AdminQuestionBuilderPage() {
                         <option value="">Link to Passage (Optional)</option>
                         {lesson.passages?.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                       </select>
-                      <select 
-                        required className="px-3 py-2 rounded-lg border"
-                        value={groupData.group_type} onChange={e => setGroupData({...groupData, group_type: e.target.value})}
-                      >
-                        <option value="MULTIPLE_CHOICE">Multiple Choice</option>
-                        <option value="TRUE_FALSE_NOT_GIVEN">True/False/Not Given</option>
-                        <option value="MATCHING">Matching</option>
-                        <option value="FILL_BLANK">Fill Blank</option>
-                      </select>
+                      {lesson.lesson_type === 'speaking' ? (
+                        <select 
+                          required className="px-3 py-2 rounded-lg border font-bold text-slate-800"
+                          value={groupData.group_type} onChange={e => setGroupData({...groupData, group_type: e.target.value})}
+                        >
+                          <option value="SPEAKING_PART_1">Part 1 - General Interview</option>
+                          <option value="SPEAKING_PART_2">Part 2 - Cue Card (Individual)</option>
+                          <option value="SPEAKING_PART_3">Part 3 - Discussion (Abstract)</option>
+                        </select>
+                      ) : (
+                        <select 
+                          required className="px-3 py-2 rounded-lg border font-medium"
+                          value={groupData.group_type} onChange={e => setGroupData({...groupData, group_type: e.target.value})}
+                        >
+                          <option value="MULTIPLE_CHOICE">Multiple Choice</option>
+                          <option value="TRUE_FALSE_NOT_GIVEN">True/False/Not Given</option>
+                          <option value="MATCHING">Matching</option>
+                          <option value="FILL_BLANK">Fill Blank</option>
+                        </select>
+                      )}
                     </div>
                     <input 
                       type="text" placeholder="Group Title (e.g. Questions 1-5)" required
@@ -372,23 +400,37 @@ export default function AdminQuestionBuilderPage() {
                       value={questionData.content} onChange={e => setQuestionData({...questionData, content: e.target.value})}
                     />
 
-                    {/* Simple Options for MC */}
-                    <div className="space-y-2">
-                      {optionInputs.map((opt, idx) => (
-                        <div key={opt.key} className="flex gap-2">
-                          <span className="w-6 font-bold">{opt.key}</span>
-                          <input 
-                            className="flex-1 px-2 py-1 border rounded"
-                            value={opt.value} onChange={e => {
-                              const newOpts = [...optionInputs];
-                              newOpts[idx].value = e.target.value;
-                              setOptionInputs(newOpts);
-                            }}
+                    {lesson.lesson_type === 'speaking' ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Scoring Criteria / Suggested Vocabulary (Optional)</label>
+                          <textarea 
+                            placeholder="e.g. band 7+ vocabulary requirements, or model phrases to evaluate against..." rows={3}
+                            className="w-full px-3 py-2 rounded-lg border text-sm font-medium"
+                            value={questionData.scoring_criteria || ''} 
+                            onChange={e => setQuestionData({...questionData, scoring_criteria: e.target.value})}
                           />
-                          <input type="radio" checked={questionData.correct_answer === opt.key} onChange={() => setQuestionData({...questionData, correct_answer: opt.key})} />
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ) : (
+                      /* Simple Options for MC */
+                      <div className="space-y-2">
+                        {optionInputs.map((opt, idx) => (
+                          <div key={opt.key} className="flex gap-2">
+                            <span className="w-6 font-bold">{opt.key}</span>
+                            <input 
+                              className="flex-1 px-2 py-1 border rounded"
+                              value={opt.value} onChange={e => {
+                                const newOpts = [...optionInputs];
+                                newOpts[idx].value = e.target.value;
+                                setOptionInputs(newOpts);
+                              }}
+                            />
+                            <input type="radio" checked={questionData.correct_answer === opt.key} onChange={() => setQuestionData({...questionData, correct_answer: opt.key})} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="flex justify-end gap-2">
                       <button type="button" onClick={() => setShowQuestionForm(false)} className="px-4 py-2 text-sm">Cancel</button>
@@ -398,15 +440,39 @@ export default function AdminQuestionBuilderPage() {
                 )}
 
                 <div className="space-y-3">
-                  {questions.map((q, idx) => (
-                    <div key={q.id} className="p-3 bg-slate-50 rounded-lg text-sm border flex justify-between">
-                      <div>
-                        <span className="font-bold mr-2">Q{idx+1}.</span>
-                        <span>{q.content}</span>
+                  {questions.map((q, idx) => {
+                    const group = lesson.question_groups?.find(g => g.id === q.group_id);
+                    return (
+                      <div key={q.id} className="p-4 bg-slate-50 rounded-2xl text-sm border border-slate-200 flex flex-col justify-between gap-2 shadow-sm hover:border-slate-300 transition-all">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <span className="font-bold text-slate-800 mr-2">Q{idx + 1}.</span>
+                            <span className="font-medium text-slate-700">{q.content}</span>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            group?.group_type?.startsWith('SPEAKING_')
+                              ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                              : 'bg-indigo-100 text-indigo-700'
+                          }`}>
+                            {group ? (
+                              group.group_type?.startsWith('SPEAKING_') 
+                                ? group.group_type.replace('SPEAKING_', '').replace('_', ' ') 
+                                : group.title
+                            ) : 'No Group'}
+                          </span>
+                        </div>
+                        {q.scoring_criteria && (
+                          <div className="bg-emerald-50 border border-emerald-100 p-2.5 rounded-xl text-xs font-bold text-emerald-800 flex items-start gap-1.5 mt-1">
+                            <span className="text-emerald-500">💡 Criteria:</span>
+                            <span className="font-medium flex-1">{q.scoring_criteria}</span>
+                          </div>
+                        )}
                       </div>
-                      <span className="text-xs font-bold text-indigo-600">Group: {lesson.question_groups?.find(g => g.id === q.group_id)?.title || 'None'}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
+                  {questions.length === 0 && (
+                    <p className="text-slate-400 font-bold text-center py-6 text-sm">No questions added yet.</p>
+                  )}
                 </div>
               </section>
             )}
