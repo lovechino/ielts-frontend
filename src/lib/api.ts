@@ -15,6 +15,7 @@ export async function fetcher<T = unknown>(endpoint: string, options: RequestIni
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...bearerHeaders(),
       ...options.headers,
     },
     cache: 'no-store',
@@ -220,6 +221,7 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/upload/`, {
       method: "POST",
       body: formData,
+      headers: bearerHeaders(),
     });
     if (!res.ok) throw new Error("Upload failed");
     return res.json();

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { setAccessToken } from '@/lib/auth-token';
 import { useRouter } from 'next/navigation';
 
 interface User {
@@ -46,6 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
+          setAccessToken(token);
           const userData = await api.auth.me(token);
           setUser(userData);
         } catch (error) {
@@ -66,6 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    setAccessToken(null);
     setUser(null);
     router.push('/login');
   };
