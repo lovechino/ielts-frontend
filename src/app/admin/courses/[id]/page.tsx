@@ -291,7 +291,7 @@ export default function AdminCourseDetailsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 items-end">
+                <div className="grid grid-cols-2 gap-4 items-end">
                   <div className="flex items-center gap-2 pb-3">
                     <input 
                       type="checkbox" 
@@ -303,31 +303,17 @@ export default function AdminCourseDetailsPage() {
                     <label htmlFor="is_test" className="text-sm font-bold text-slate-700">Set as Test</label>
                   </div>
                   {newLesson.is_test && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Test Type</label>
-                        <select 
-                          value={newLesson.test_type || 'practice'} onChange={e => setNewLesson({...newLesson, test_type: e.target.value as 'practice' | 'mini' | 'full'})}
-                          className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
-                        >
-                          <option value="practice">Practice</option>
-                          <option value="mini">Mini Test</option>
-                          <option value="full">Full Test</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Duration (mins)</label>
-                        <input 
-                          type="number"
-                          value={newLesson.time_limit} 
-                          onChange={e => {
-                            const val = parseInt(e.target.value);
-                            setNewLesson({...newLesson, time_limit: isNaN(val) ? 0 : val});
-                          }}
-                          className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-                    </>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Test Type</label>
+                      <select 
+                        value={newLesson.test_type || 'practice'} onChange={e => setNewLesson({...newLesson, test_type: e.target.value as 'practice' | 'mini' | 'full'})}
+                        className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="practice">Practice</option>
+                        <option value="mini">Mini Test</option>
+                        <option value="full">Full Test</option>
+                      </select>
+                    </div>
                   )}
                 </div>
 

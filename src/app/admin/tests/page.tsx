@@ -227,18 +227,7 @@ export default function AdminTestsPage() {
                   )}
                 </div>
               )}
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Duration (Minutes)</label>
-                <input 
-                  type="number"
-                  value={newTest.time_limit} 
-                  onChange={e => {
-                    const val = parseInt(e.target.value);
-                    setNewTest({...newTest, time_limit: isNaN(val) ? 0 : val});
-                  }}
-                  className="w-full px-5 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-medium"
-                />
-              </div>
+
 
               <div className="col-span-2">
                 <label className="block text-sm font-bold text-slate-700 mb-2">Upload Test PDF (Optional)</label>
