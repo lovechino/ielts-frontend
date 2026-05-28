@@ -106,7 +106,7 @@ export interface Lesson {
   time_limit?: number;
   is_test?: boolean;
   test_type?: 'mini' | 'full' | 'practice';
-  speaking_part?: number;
+  lesson_parts?: number[];
   passages?: Passage[];
   question_groups?: QuestionGroup[];
 }

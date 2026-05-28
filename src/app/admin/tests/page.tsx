@@ -24,7 +24,7 @@ export default function AdminTestsPage() {
     lesson_type: 'reading',
     content: '',
     pdf_url: '',
-    speaking_part: null as number | null
+    lesson_parts: [] as number[],
   });
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -101,12 +101,24 @@ export default function AdminTestsPage() {
 
     try {
       // 1. Create the Lesson
-      const lessonResult = await api.courses.createLesson(defaultCourseId, { 
+      const payload: any = { 
         ...newTest,
-        speaking_part: newTest.speaking_part ?? undefined,
         is_test: true,
         course_id: defaultCourseId 
-      });
+      };
+
+      // Handle Speaking Parts
+      if (newTest.lesson_type === 'speaking' && newTest.speaking_parts.length > 0) {
+        payload.speaking_parts = newTest.speaking_parts;
+        payload.speaking_part = newTest.speaking_parts[0]; // compat
+      }
+
+      // Handle Writing Tasks
+      if (newTest.lesson_type === 'writing' && newTest.writing_tasks.length > 0) {
+        payload.metadata = { tasks: newTest.writing_tasks };
+      }
+
+      const lessonResult = await api.courses.createLesson(defaultCourseId, payload);
       const lesson = Array.isArray(lessonResult) ? lessonResult[0] : lessonResult;
 
       // 2. If there's content, trigger AI Auto-generate
@@ -129,6 +141,24 @@ export default function AdminTestsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleSpeakingPart = (part: number) => {
+    setNewTest(prev => {
+      const parts = prev.speaking_parts.includes(part)
+        ? prev.speaking_parts.filter(p => p !== part)
+        : [...prev.speaking_parts, part].sort();
+      return { ...prev, speaking_parts: parts };
+    });
+  };
+
+  const toggleWritingTask = (task: number) => {
+    setNewTest(prev => {
+      const tasks = prev.writing_tasks.includes(task)
+        ? prev.writing_tasks.filter(t => t !== task)
+        : [...prev.writing_tasks, task].sort();
+      return { ...prev, writing_tasks: tasks };
+    });
   };
 
   const handleDeleteTest = async (testId: string) => {
@@ -195,7 +225,8 @@ export default function AdminTestsPage() {
                         setNewTest({
                           ...newTest, 
                           lesson_type: type as 'reading' | 'listening' | 'writing' | 'speaking',
-                          speaking_part: type === 'speaking' ? 1 : null
+                          speaking_parts: type === 'speaking' ? [1] : [],
+                          writing_tasks: type === 'writing' ? [1] : []
                         });
                       }}
                       className="w-full px-5 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-medium"
@@ -209,20 +240,57 @@ export default function AdminTestsPage() {
                   
                   {newTest.lesson_type === 'speaking' && (
                     <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Speaking Part</label>
-                      <select 
-                        required
-                        value={newTest.speaking_part || ''} 
-                        onChange={e => {
-                          const val = parseInt(e.target.value);
-                          setNewTest({...newTest, speaking_part: isNaN(val) ? null : val});
-                        }}
-                        className="w-full px-5 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-bold text-slate-800"
-                      >
-                        <option value="1">Part 1 - Introduction & Interview</option>
-                        <option value="2">Part 2 - Cue Card (Individual)</option>
-                        <option value="3">Part 3 - Discussion (Abstract)</option>
-                      </select>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Speaking Parts</label>
+                      <div className="flex gap-4">
+                        {[1, 2, 3].map(part => (
+                          <label key={part} className="flex items-center gap-2 cursor-pointer group">
+                            <input 
+                              type="checkbox"
+                              checked={newTest.speaking_parts.includes(part)}
+                              onChange={() => toggleSpeakingPart(part)}
+                              className="hidden"
+                            />
+                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                              newTest.speaking_parts.includes(part) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200'
+                            }`}>
+                              {newTest.speaking_parts.includes(part) && (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                            <span className={`text-sm font-bold ${newTest.speaking_parts.includes(part) ? 'text-indigo-600' : 'text-slate-500'}`}>Part {part}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {newTest.lesson_type === 'writing' && (
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Writing Tasks</label>
+                      <div className="flex gap-4">
+                        {[1, 2].map(task => (
+                          <label key={task} className="flex items-center gap-2 cursor-pointer group">
+                            <input 
+                              type="checkbox"
+                              checked={newTest.writing_tasks.includes(task)}
+                              onChange={() => toggleWritingTask(task)}
+                              className="hidden"
+                            />
+                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                              newTest.writing_tasks.includes(task) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-200'
+                            }`}>
+                              {newTest.writing_tasks.includes(task) && (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                            <span className={`text-sm font-bold ${newTest.writing_tasks.includes(task) ? 'text-indigo-600' : 'text-slate-500'}`}>Task {task}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

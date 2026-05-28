@@ -14,10 +14,55 @@ export default function AdminQuestionBuilderPage() {
   const [loading, setLoading] = useState(true);
 
   // Forms State
-  const [activeTab, setActiveTab] = useState<'passage' | 'group' | 'question'>('passage');
-  const [showPassageForm, setShowPassageForm] = useState(false);
-  const [showGroupForm, setShowGroupForm] = useState(false);
-  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'passage' | 'group' | 'question' | 'config'>('passage');
+
+  // ... (inside the component)
+
+  const isSpeaking = lesson?.lesson_type === 'speaking';
+  const isWriting = lesson?.lesson_type === 'writing';
+
+  useEffect(() => {
+    if (isSpeaking || isWriting) {
+      setActiveTab('config');
+    }
+  }, [isSpeaking, isWriting]);
+
+  // JSON Content State for Speaking
+  const [speakingJson, setSpeakingJson] = useState<any>(null);
+  // Metadata State for Writing
+  const [writingMetadata, setWritingMetadata] = useState<any>(null);
+
+  useEffect(() => {
+    if (lesson) {
+      if (isSpeaking && lesson.content) {
+        try {
+          setSpeakingJson(JSON.parse(lesson.content));
+        } catch {
+          setSpeakingJson({});
+        }
+      }
+      if (isWriting && lesson.metadata) {
+        setWritingMetadata(lesson.metadata);
+      }
+    }
+  }, [lesson, isSpeaking, isWriting]);
+
+  const handleUpdateConfig = async () => {
+    try {
+      const payload: any = {};
+      if (isSpeaking) {
+        payload.content = JSON.stringify(speakingJson);
+      }
+      if (isWriting) {
+        payload.metadata = writingMetadata;
+      }
+      await api.lessons.update(lessonId, payload);
+      alert("Config updated successfully!");
+      loadData();
+    } catch {
+      alert("Failed to update config");
+    }
+  };
 
   // Passage Form
   const [passageData, setPassageData] = useState({ title: '', content_html: '', order: 0 });
@@ -203,9 +248,16 @@ export default function AdminQuestionBuilderPage() {
         </div>
         <div className="flex gap-4">
           <div className="flex bg-slate-100 p-1 rounded-full mr-4">
-            <button onClick={() => setActiveTab('passage')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${activeTab === 'passage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'}`}>Passages</button>
-            <button onClick={() => setActiveTab('group')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${activeTab === 'group' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'}`}>Groups</button>
-            <button onClick={() => setActiveTab('question')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${activeTab === 'question' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'}`}>Questions</button>
+            {(isSpeaking || isWriting) && (
+              <button onClick={() => setActiveTab('config')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${activeTab === 'config' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'}`}>Config</button>
+            )}
+            {!isSpeaking && !isWriting && (
+              <>
+                <button onClick={() => setActiveTab('passage')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${activeTab === 'passage' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'}`}>Passages</button>
+                <button onClick={() => setActiveTab('group')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${activeTab === 'group' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'}`}>Groups</button>
+                <button onClick={() => setActiveTab('question')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${activeTab === 'question' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'}`}>Questions</button>
+              </>
+            )}
           </div>
           <button 
             onClick={() => router.push('/admin/tests')}
@@ -239,6 +291,64 @@ export default function AdminQuestionBuilderPage() {
         <div className="w-1/2 bg-white flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
             
+            {/* CONFIG SECTION (Speaking / Writing) */}
+            {activeTab === 'config' && (
+              <section className="space-y-8">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Structured Configuration</h2>
+                  <button 
+                    onClick={handleUpdateConfig}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md shadow-indigo-100"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+
+                {isSpeaking && (
+                  <div className="space-y-6">
+                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200">
+                      <h3 className="font-bold text-slate-900 mb-4">Speaking Content (JSON)</h3>
+                      <p className="text-xs text-slate-500 mb-4">Define the topics and questions for each part of the test.</p>
+                      <textarea 
+                        rows={20}
+                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 font-mono text-xs"
+                        value={JSON.stringify(speakingJson, null, 2)}
+                        onChange={(e) => {
+                          try {
+                            setSpeakingJson(JSON.parse(e.target.value));
+                          } catch {
+                            // Let them keep typing invalid JSON
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {isWriting && (
+                  <div className="space-y-6">
+                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200">
+                      <h3 className="font-bold text-slate-900 mb-4">Writing Task Configuration</h3>
+                      <div className="space-y-4">
+                        {(writingMetadata?.tasks || [1, 2]).map((task: number) => (
+                          <div key={task} className="p-4 bg-white rounded-2xl border border-slate-200">
+                            <h4 className="font-bold text-indigo-600 mb-2">Task {task}</h4>
+                            <textarea 
+                              placeholder={`Task ${task} Prompt/Instruction...`}
+                              rows={5}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm"
+                              value={writingMetadata?.[`task${task}_instruction`] || ''}
+                              onChange={(e) => setWritingMetadata({...writingMetadata, [`task${task}_instruction`]: e.target.value})}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* PASSAGES SECTION */}
             {activeTab === 'passage' && (
               <section className="space-y-8">
