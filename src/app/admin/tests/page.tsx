@@ -21,10 +21,12 @@ export default function AdminTestsPage() {
     title: '',
     test_type: 'full' as 'mini' | 'full',
     time_limit: 60,
-    lesson_type: 'reading',
+    lesson_type: 'reading' as 'reading' | 'listening' | 'writing' | 'speaking',
     content: '',
     pdf_url: '',
     lesson_parts: [] as number[],
+    speaking_parts: [] as number[],
+    writing_tasks: [] as number[],
   });
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [isScanning, setIsScanning] = useState(false);

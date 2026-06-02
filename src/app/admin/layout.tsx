@@ -8,10 +8,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   const navItems = [
-    { label: 'Dashboard', href: '/admin' },
+    { label: 'Dashboard',         href: '/admin' },
     { label: 'Course Management', href: '/admin/courses' },
-    { label: 'Test Management', href: '/admin/tests' },
-    { label: 'Vocabulary', href: '/admin/vocabulary' },
+    { label: 'Test Management',   href: '/admin/tests' },
+    { label: 'Vocabulary',        href: '/admin/vocabulary' },
+    { label: 'Daily Challenges',  href: '/admin/daily-challenges' },
   ];
 
   return (

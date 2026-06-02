@@ -107,6 +107,8 @@ export interface Lesson {
   is_test?: boolean;
   test_type?: 'mini' | 'full' | 'practice';
   lesson_parts?: number[];
+  speaking_part?: number;
+  metadata?: any;
   passages?: Passage[];
   question_groups?: QuestionGroup[];
 }
@@ -149,6 +151,29 @@ export interface Job {
   updated_at: number;
 }
 
+export interface DailyChallenge {
+  id: string;
+  challenge_date: string;
+  topic: string;
+  content: {
+    metadata: any;
+    reading: any;
+    vocabulary: any[];
+  };
+  is_completed?: boolean;
+  reward_claimed?: boolean;
+}
+
+export interface AdminStats {
+  total_users: number;
+  premium_users: number;
+  total_words: number;
+  total_lessons: number;
+  total_submissions: number;
+  total_speaking_sessions: number;
+  today_challenge_exists: boolean;
+}
+
 export const api = {
   courses: {
     // F1: Static data — use ISR cache (5 min)
@@ -170,6 +195,7 @@ export const api = {
   },
   lessons: {
     get: (id: string) => cachedFetcher<Lesson>(`/courses/lessons/${id}`, TTL_STATIC),
+    update: (id: string, data: Partial<Lesson>) => fetcher<Lesson>(`/courses/lessons/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => fetcher<{ deleted: boolean }>(`/courses/lessons/${id}`, { method: 'DELETE' }),
     questions: (id: string) => cachedFetcher<Question[]>(`/courses/lessons/${id}/questions`, TTL_STATIC),
     createQuestion: (lessonId: string, data: Partial<Question>) => fetcher<Question>(`/courses/lessons/${lessonId}/questions`, { method: 'POST', body: JSON.stringify(data) }),
@@ -214,6 +240,28 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ vocab_course_id, words }),
     }),
+    /** Tải file SQL export để đóng gói dictionary.db */
+    exportSqlUrl: (vocab_course_id?: string) => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const qs = vocab_course_id ? `?vocab_course_id=${vocab_course_id}` : '';
+      return `${API_BASE_URL}/vocabulary/export-sql${qs}`;
+    },
+  },
+  daily: {
+    getToday: () => fetcher<DailyChallenge>('/daily/today'),
+    complete: (challengeId: string) => fetcher<{ success: boolean }>('/daily/complete', {
+      method: 'POST',
+      body: JSON.stringify({ challenge_id: challengeId }),
+    }),
+    claim: (challengeId: string) => fetcher<{ success: boolean, message: string }>('/daily/claim', {
+      method: 'POST',
+      body: JSON.stringify({ challenge_id: challengeId }),
+    }),
+    // Admin push
+    push: (date: string, content: any) => fetcher<{ success: boolean }>('/daily/push', {
+      method: 'POST',
+      body: JSON.stringify({ date, content }),
+    }),
   },
   upload: async (file: File) => {
     const formData = new FormData();
@@ -256,6 +304,9 @@ export const api = {
       };
       return poll();
     }
+  },
+  adminStats: {
+    overview: () => fetcher<AdminStats>('/stats/overview'),
   },
   auth: {
     login: async (data: any) => {
