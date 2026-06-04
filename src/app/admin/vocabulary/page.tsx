@@ -76,6 +76,7 @@ export default function AdminVocabularyPage() {
   const [vocabForm, setVocabForm] = useState({
     id: '', word: '', definition: '', definition_vi: '', example: '', example_vi: '',
     topic: 'General', pronunciation: '', part_of_speech: 'N', level: 'A1', vocab_course_id: '',
+    is_priority: false, is_academic: false,
   });
 
   // Bulk import state
@@ -354,7 +355,13 @@ export default function AdminVocabularyPage() {
                       <tr key={w.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                         <td className="p-4 font-black text-slate-800">{w.word}</td>
                         <td className="p-4 font-bold text-slate-500 text-xs">{w.part_of_speech}</td>
-                        <td className="p-4"><span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-xs font-black">{w.level}</span></td>
+                        <td className="p-4">
+                          <div className="flex gap-1">
+                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black">{w.level}</span>
+                            {w.is_priority && <span className="w-2 h-2 rounded-full bg-indigo-500" title="Priority"></span>}
+                            {w.is_academic && <span className="w-2 h-2 rounded-full bg-blue-500" title="Academic"></span>}
+                          </div>
+                        </td>
                         <td className="p-4 text-sm text-slate-600 max-w-[200px] truncate">{w.definition}</td>
                         <td className="p-4 text-sm text-slate-600 max-w-[200px] truncate">{w.definition_vi}</td>
                         <td className="p-4 text-right space-x-1">
@@ -418,6 +425,16 @@ export default function AdminVocabularyPage() {
               <label className="block text-xs font-black text-slate-400 uppercase mb-2">Chủ Đề</label>
               <input type="text" value={vocabForm.topic} onChange={e => setVocabForm({ ...vocabForm, topic: e.target.value })} placeholder="Education, Technology..." className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
             </div>
+            <div className="flex items-center gap-6 pt-6">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input type="checkbox" checked={vocabForm.is_priority} onChange={e => setVocabForm({ ...vocabForm, is_priority: e.target.checked })} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <span className="text-sm font-black text-slate-600 group-hover:text-indigo-600 transition-colors">Priority (Casual/Common)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input type="checkbox" checked={vocabForm.is_academic} onChange={e => setVocabForm({ ...vocabForm, is_academic: e.target.checked })} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                <span className="text-sm font-black text-slate-600 group-hover:text-blue-600 transition-colors">Academic (IELTS)</span>
+              </label>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[['definition','Định Nghĩa Tiếng Anh *','English definition...'],['definition_vi','Dịch Tiếng Việt *','Nghĩa tiếng Việt...'],['example','Ví Dụ Tiếng Anh','English example...'],['example_vi','Ví Dụ Dịch VI','Ví dụ dịch tiếng Việt...']].map(([field, label, ph]) => (
@@ -429,7 +446,7 @@ export default function AdminVocabularyPage() {
           </div>
           <div className="flex gap-4">
             <button type="submit" className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-xl transition-all">Lưu Từ Vựng</button>
-            {vocabForm.id && <button type="button" onClick={() => setVocabForm({ id: '', word: '', definition: '', definition_vi: '', example: '', example_vi: '', topic: 'General', pronunciation: '', part_of_speech: 'N', level: 'A1', vocab_course_id: selectedCourseId })} className="px-8 py-4 bg-slate-100 text-slate-600 font-black text-sm rounded-xl">Hủy</button>}
+            {vocabForm.id && <button type="button" onClick={() => setVocabForm({ id: '', word: '', definition: '', definition_vi: '', example: '', example_vi: '', topic: 'General', pronunciation: '', part_of_speech: 'N', level: 'A1', vocab_course_id: selectedCourseId, is_priority: false, is_academic: false })} className="px-8 py-4 bg-slate-100 text-slate-600 font-black text-sm rounded-xl">Hủy</button>}
           </div>
         </form>
       )}

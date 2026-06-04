@@ -93,6 +93,8 @@ export interface Vocabulary {
   synonyms?: string[];
   antonyms?: string[];
   level?: string;
+  is_priority?: boolean;
+  is_academic?: boolean;
 }
 
 export interface Lesson {
@@ -172,6 +174,27 @@ export interface AdminStats {
   total_submissions: number;
   total_speaking_sessions: number;
   today_challenge_exists: boolean;
+  // BI Fields
+  today_revenue: number;
+  total_revenue: number;
+  today_ad_views: number;
+  environment: 'local' | 'production';
+  is_local: boolean;
+}
+
+export interface ShopItem {
+  id: string;
+  name: string;
+  description?: string;
+  item_type: 'avatar' | 'frame' | 'booster' | 'protection';
+  sub_type?: 'static' | 'animated';
+  rarity?: 'common' | 'rare' | 'epic' | 'legendary';
+  price_coins: number;
+  price_gems: number;
+  image_url?: string;
+  metadata?: any;
+  is_active: boolean;
+  created_at?: string;
 }
 
 export const api = {
@@ -261,6 +284,45 @@ export const api = {
     push: (date: string, content: any) => fetcher<{ success: boolean }>('/daily/push', {
       method: 'POST',
       body: JSON.stringify({ date, content }),
+    }),
+  },
+  shop: {
+    list: () => fetcher<ShopItem[]>('/shop/items'),
+    buy: (itemId: string, quantity: number = 1) => fetcher<{ success: boolean }>('/shop/buy', {
+      method: 'POST',
+      body: JSON.stringify({ itemId, quantity }),
+    }),
+    equip: (inventoryId: string) => fetcher<{ success: boolean }>('/shop/equip', {
+      method: 'POST',
+      body: JSON.stringify({ inventoryId }),
+    }),
+    inventory: () => fetcher<any[]>('/shop/inventory'),
+    // Admin ops
+    adminList: () => fetcher<ShopItem[]>('/shop/items'), 
+    create: (data: Partial<ShopItem>) => fetcher<ShopItem>('/shop/items', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<ShopItem>) => fetcher<{ success: boolean }>(`/shop/items/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => fetcher<{ success: boolean }>(`/shop/items/${id}`, { method: 'DELETE' }),
+  },
+  adminUser: {
+    list: (params?: { role?: string; tier?: string; query?: string; offset?: number; limit?: number }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.role) searchParams.append('role', params.role);
+      if (params?.tier) searchParams.append('tier', params.tier);
+      if (params?.query) searchParams.append('query', params.query);
+      if (params?.offset) searchParams.append('offset', params.offset.toString());
+      if (params?.limit) searchParams.append('limit', params.limit.toString());
+      return fetcher<any[]>(`/admin/users?${searchParams.toString()}`);
+    },
+    update: (id: string, data: any) => fetcher<{ success: boolean }>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  },
+  payment: {
+    createLink: (amount: number, description: string) => fetcher<{ checkoutUrl: string; orderCode: number }>('/payment/payos/create-link', {
+      method: 'POST',
+      body: JSON.stringify({ amount, description }),
+    }),
+    simulateSuccess: (orderCode: number) => fetcher<{ success: boolean }>('/payment/payos/simulate-success', {
+      method: 'POST',
+      body: JSON.stringify({ orderCode }),
     }),
   },
   upload: async (file: File) => {
