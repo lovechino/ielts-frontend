@@ -121,6 +121,10 @@ export interface Passage {
   title?: string;
   content_html?: string;
   order?: number;
+  part?: number;
+  audio_url?: string;
+  transcript?: string;
+  image_url?: string;
 }
 
 export interface QuestionGroup {
@@ -131,6 +135,7 @@ export interface QuestionGroup {
   instruction?: string;
   group_type?: string;
   order?: number;
+  part?: number;
 }
 
 export interface Question {
@@ -164,6 +169,16 @@ export interface DailyChallenge {
   };
   is_completed?: boolean;
   reward_claimed?: boolean;
+}
+
+export interface VersionMeta {
+  version: string;
+  url: string;
+  checksum: string | null;
+  isFullUpdate: boolean;
+  patchUrl: string | null;
+  patchSize: number | null;
+  updatedAt: string | null;
 }
 
 export interface AdminStats {
@@ -200,39 +215,65 @@ export interface ShopItem {
 export const api = {
   courses: {
     // F1: Static data — use ISR cache (5 min)
-    list: () => cachedFetcher<Course[]>('/courses/', TTL_STATIC),
-    get: (id: string) => cachedFetcher<Course>(`/courses/${id}`, TTL_STATIC),
-    lessons: (id: string) => cachedFetcher<Lesson[]>(`/courses/${id}/lessons`, TTL_STATIC),
+    list: () => cachedFetcher<Course[]>('/test-sets/', TTL_STATIC),
+    get: (id: string) => cachedFetcher<Course>(`/test-sets/${id}`, TTL_STATIC),
+    lessons: (id: string) => cachedFetcher<Lesson[]>(`/test-sets/${id}/lessons`, TTL_STATIC),
     // Write operations — no cache
-    create: (data: Partial<Course>) => fetcher<Course>('/courses/', { method: 'POST', body: JSON.stringify(data) }),
-    createLesson: (courseId: string, data: Partial<Lesson> | Partial<Lesson>[]) => fetcher<Lesson | Lesson[]>(`/courses/${courseId}/lessons`, { method: 'POST', body: JSON.stringify(data) }),
-    updateLesson: (lessonId: string, data: Partial<Lesson>) => fetcher<Lesson>(`/courses/lessons/${lessonId}`, { method: 'PUT', body: JSON.stringify(data) }),
-    enroll: (courseId: string, token: string) => fetcher<{ id: string, status: string }>(`/courses/${courseId}/enroll`, {
+    create: (data: Partial<Course>) => fetcher<Course>('/test-sets/', { method: 'POST', body: JSON.stringify(data) }),
+    createLesson: (courseId: string, data: Partial<Lesson> | Partial<Lesson>[]) => fetcher<Lesson | Lesson[]>(`/test-sets/${courseId}/lessons`, { method: 'POST', body: JSON.stringify(data) }),
+    updateLesson: (lessonId: string, data: Partial<Lesson>) => fetcher<Lesson>(`/test-sets/lessons/${lessonId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    enroll: (courseId: string, token: string) => fetcher<{ id: string, status: string }>(`/test-sets/${courseId}/enroll`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` }
     }),
-    checkEnrollment: (courseId: string, token: string) => fetcher<{ enrolled: boolean, status?: string }>(`/courses/${courseId}/enroll-status`, {
+    checkEnrollment: (courseId: string, token: string) => fetcher<{ enrolled: boolean, status?: string }>(`/test-sets/${courseId}/enroll-status`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` }
     }),
   },
   lessons: {
-    get: (id: string) => cachedFetcher<Lesson>(`/courses/lessons/${id}`, TTL_STATIC),
-    update: (id: string, data: Partial<Lesson>) => fetcher<Lesson>(`/courses/lessons/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => fetcher<{ deleted: boolean }>(`/courses/lessons/${id}`, { method: 'DELETE' }),
-    questions: (id: string) => cachedFetcher<Question[]>(`/courses/lessons/${id}/questions`, TTL_STATIC),
-    createQuestion: (lessonId: string, data: Partial<Question>) => fetcher<Question>(`/courses/lessons/${lessonId}/questions`, { method: 'POST', body: JSON.stringify(data) }),
+    get: (id: string) => cachedFetcher<Lesson>(`/test-sets/lessons/${id}`, TTL_STATIC),
+    create: (data: Partial<Lesson>) => fetcher<Lesson>('/test-sets/lessons', { method: 'POST', body: JSON.stringify(data) }),
+    quickImport: (data: {
+      title: string;
+      lesson_type: string;
+      test_type: string;
+      raw_text: string;
+      test_set_title?: string;
+      course_id?: string;
+    }) => fetcher<{ lesson: Lesson, job_id: string }>('/test-sets/quick-import', { method: 'POST', body: JSON.stringify(data) }),
+    quickImportPreview: (data: {
+      raw_text: string;
+      lesson_type: string;
+    }) => fetcher<{
+      type: string;
+      total_parts: number;
+      total_questions: number;
+      sections: {
+        part_number: number;
+        passage_title: string;
+        groups: { type: string; range: string; count: number }[];
+      }[];
+    }>('/test-sets/quick-import/preview', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<Lesson>) => fetcher<Lesson>(`/test-sets/lessons/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => fetcher<{ deleted: boolean }>(`/test-sets/lessons/${id}`, { method: 'DELETE' }),
+    questions: (id: string) => cachedFetcher<Question[]>(`/test-sets/lessons/${id}/questions`, TTL_STATIC),
+    createQuestion: (lessonId: string, data: Partial<Question>) => fetcher<Question>(`/test-sets/lessons/${lessonId}/questions`, { method: 'POST', body: JSON.stringify(data) }),
 
     // Passages
-    createPassage: (lessonId: string, data: Partial<Passage>) => fetcher<Passage>(`/courses/lessons/${lessonId}/passages`, { method: 'POST', body: JSON.stringify(data) }),
-    passages: (lessonId: string) => cachedFetcher<Passage[]>(`/courses/lessons/${lessonId}/passages`, TTL_STATIC),
+    createPassage: (lessonId: string, data: Partial<Passage>) => fetcher<Passage>(`/test-sets/lessons/${lessonId}/passages`, { method: 'POST', body: JSON.stringify(data) }),
+    passages: (lessonId: string) => cachedFetcher<Passage[]>(`/test-sets/lessons/${lessonId}/passages`, TTL_STATIC),
+    updatePassage: (passageId: string, data: Partial<Passage>) => fetcher<Passage>(`/test-sets/passages/${passageId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deletePassage: (passageId: string) => fetcher<{ deleted: boolean }>(`/test-sets/passages/${passageId}`, { method: 'DELETE' }),
 
     // Question Groups
-    createQuestionGroup: (lessonId: string, data: Partial<QuestionGroup>) => fetcher<QuestionGroup>(`/courses/lessons/${lessonId}/question-groups`, { method: 'POST', body: JSON.stringify(data) }),
-    questionGroups: (lessonId: string) => cachedFetcher<QuestionGroup[]>(`/courses/lessons/${lessonId}/question-groups`, TTL_STATIC),
+    createQuestionGroup: (lessonId: string, data: Partial<QuestionGroup>) => fetcher<QuestionGroup>(`/test-sets/lessons/${lessonId}/question-groups`, { method: 'POST', body: JSON.stringify(data) }),
+    questionGroups: (lessonId: string) => cachedFetcher<QuestionGroup[]>(`/test-sets/lessons/${lessonId}/question-groups`, TTL_STATIC),
+    updateQuestionGroup: (groupId: string, data: Partial<QuestionGroup>) => fetcher<QuestionGroup>(`/test-sets/question-groups/${groupId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteQuestionGroup: (groupId: string) => fetcher<{ deleted: boolean }>(`/test-sets/question-groups/${groupId}`, { method: 'DELETE' }),
 
     // AI
-    autoGenerate: (lessonId: string, rawText: string) => fetcher<{ job_id: string }>(`/courses/lessons/${lessonId}/auto-generate`, { method: 'POST', body: JSON.stringify({ raw_text: rawText }) }),
+    autoGenerate: (lessonId: string, rawText: string) => fetcher<{ job_id: string }>(`/test-sets/lessons/${lessonId}/auto-generate`, { method: 'POST', body: JSON.stringify({ raw_text: rawText }) }),
   },
   tests: {
     list: (type?: 'mini' | 'full') => cachedFetcher<Lesson[]>(`/tests${type ? `?type=${type}` : ''}`, TTL_STATIC),
@@ -251,10 +292,10 @@ export const api = {
     get: (word: string) => cachedFetcher<Vocabulary>(`/vocabulary/${word}`, TTL_VOCAB),
 
     // Courses
-    listCourses: () => cachedFetcher<VocabularyCourse[]>('/vocabulary/courses', TTL_VOCAB),
-    createCourse: (data: Partial<VocabularyCourse>) => fetcher<VocabularyCourse>('/vocabulary/courses', { method: 'POST', body: JSON.stringify(data) }),
-    updateCourse: (id: string, data: Partial<VocabularyCourse>) => fetcher<VocabularyCourse>(`/vocabulary/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    deleteCourse: (id: string) => fetcher<{ success: boolean }>(`/vocabulary/courses/${id}`, { method: 'DELETE' }),
+    listCourses: () => cachedFetcher<VocabularyCourse[]>('/vocabulary/paths', TTL_VOCAB),
+    createCourse: (data: Partial<VocabularyCourse>) => fetcher<VocabularyCourse>('/vocabulary/paths', { method: 'POST', body: JSON.stringify(data) }),
+    updateCourse: (id: string, data: Partial<VocabularyCourse>) => fetcher<VocabularyCourse>(`/vocabulary/paths/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteCourse: (id: string) => fetcher<{ success: boolean }>(`/vocabulary/paths/${id}`, { method: 'DELETE' }),
 
     // Admin vocab operations
     upsert: (data: Partial<Vocabulary>) => fetcher<Vocabulary>('/vocabulary/', { method: 'POST', body: JSON.stringify(data) }),
@@ -323,6 +364,13 @@ export const api = {
     simulateSuccess: (orderCode: number) => fetcher<{ success: boolean }>('/payment/payos/simulate-success', {
       method: 'POST',
       body: JSON.stringify({ orderCode }),
+    }),
+  },
+  dictionary: {
+    getVersion: () => fetcher<VersionMeta>('/dictionary/version'),
+    setVersion: (data: Partial<VersionMeta>) => fetcher<VersionMeta>('/dictionary/version', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
   },
   upload: async (file: File) => {

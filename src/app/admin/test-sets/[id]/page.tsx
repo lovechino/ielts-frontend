@@ -20,7 +20,7 @@ export default function AdminCourseDetailsPage() {
     content: '', 
     lesson_type: 'reading', 
     pdf_url: '',
-    is_test: false,
+    is_test: true,
     test_type: 'practice' as 'practice' | 'mini' | 'full',
     time_limit: 60
   });
@@ -106,7 +106,9 @@ export default function AdminCourseDetailsPage() {
           lesson_type: 'reading',
           pdf_url: pdf_url,
           order: lessons.length + lessonsToCreate.length + 1,
-          course_id: id
+          course_id: id,
+          is_test: true,
+          test_type: 'practice' as const
         });
       }
       
@@ -115,7 +117,7 @@ export default function AdminCourseDetailsPage() {
       setBulkRows([{ title: '', file: null, pdf_url: '', uploading: false }]);
       loadData();
     } catch (err) {
-      alert("Failed to create bulk lessons");
+      alert("Failed to create bulk tests");
       console.error(err);
     } finally {
       setLoading(false);
@@ -132,19 +134,18 @@ export default function AdminCourseDetailsPage() {
         content: '', 
         lesson_type: 'reading', 
         pdf_url: '',
-        is_test: false,
+        is_test: true,
         test_type: 'practice' as 'practice' | 'mini' | 'full',
         time_limit: 60
       });
       loadData();
     } catch (err) {
-      alert("Failed to create lesson");
+      alert("Failed to create test");
       console.error(err);
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (!course) return <div>Course not found</div>;
+  if (!course) return <div>Test set not found</div>;
 
   return (
     <div>
@@ -155,7 +156,7 @@ export default function AdminCourseDetailsPage() {
         </button>
         <div>
           <h1 className="text-3xl font-bold text-slate-900">{course.title}</h1>
-          <p className="text-slate-500">Manage lessons and PDF materials</p>
+          <p className="text-slate-500">Manage tests and PDF materials</p>
         </div>
       </div>
 
@@ -163,7 +164,7 @@ export default function AdminCourseDetailsPage() {
         {/* Left Col: Lessons List */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-900">Lessons ({lessons.length})</h2>
+            <h2 className="text-xl font-bold text-slate-900">Tests ({lessons.length})</h2>
             <div className="flex gap-2">
               <button 
                 onClick={() => { setShowBulkCreate(!showBulkCreate); setShowCreateLesson(false); }}
@@ -175,20 +176,20 @@ export default function AdminCourseDetailsPage() {
                 onClick={() => { setShowCreateLesson(!showCreateLesson); setShowBulkCreate(false); }}
                 className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700"
               >
-                {showCreateLesson ? 'Cancel' : '+ Add Lesson'}
+                {showCreateLesson ? 'Cancel' : '+ Add Test'}
               </button>
             </div>
           </div>
 
           {showBulkCreate && (
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-6">
-              <h3 className="font-bold text-slate-900 mb-4">Bulk Create Lessons</h3>
+              <h3 className="font-bold text-slate-900 mb-4">Bulk Create Tests</h3>
               
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="text-sm font-medium text-slate-500 border-b border-slate-200">
-                      <th className="pb-3 pr-4">Lesson Title</th>
+                      <th className="pb-3 pr-4">Test Title</th>
                       <th className="pb-3 pr-4">PDF File (Optional)</th>
                       <th className="pb-3 w-10"></th>
                     </tr>
@@ -202,7 +203,7 @@ export default function AdminCourseDetailsPage() {
                             value={row.title}
                             onChange={(e) => updateBulkRow(index, { title: e.target.value })}
                             className="w-full px-3 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 text-sm"
-                            placeholder="e.g. Unit 1"
+                            placeholder="e.g. Test 1"
                           />
                         </td>
                         <td className="py-3 pr-4">
@@ -241,14 +242,14 @@ export default function AdminCourseDetailsPage() {
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                   </svg>
-                  Add Another Lesson
+                  Add Another Test
                 </button>
                 <button 
                   onClick={handleBulkCreateLessons}
                   disabled={loading}
                   className="bg-slate-900 text-white px-8 py-2 rounded-lg font-bold hover:bg-black transition-colors disabled:bg-slate-400"
                 >
-                  {loading ? 'Creating...' : `Save ${bulkRows.filter(r => r.title.trim()).length} Lessons`}
+                  {loading ? 'Creating...' : `Save ${bulkRows.filter(r => r.title.trim()).length} Tests`}
                 </button>
               </div>
             </div>
@@ -256,21 +257,21 @@ export default function AdminCourseDetailsPage() {
 
           {showCreateLesson && (
             <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 mb-6">
-              <h3 className="font-bold text-indigo-900 mb-4">Create New Lesson</h3>
+              <h3 className="font-bold text-indigo-900 mb-4">Create New Test</h3>
               <form onSubmit={handleCreateLesson} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Lesson Title</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Test Title</label>
                   <input 
                     type="text" required
                     value={newLesson.title} onChange={e => setNewLesson({...newLesson, title: e.target.value})}
                     className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g. Unit 1: Introduction"
+                    placeholder="e.g. Reading Test 1"
                   />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Lesson Type</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Test Type</label>
                     <select 
                       value={newLesson.lesson_type} onChange={e => setNewLesson({...newLesson, lesson_type: e.target.value})}
                       className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
@@ -282,7 +283,7 @@ export default function AdminCourseDetailsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Material</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Material (PDF)</label>
                     <input 
                       type="file" accept=".pdf"
                       onChange={handleFileUpload}
@@ -292,44 +293,40 @@ export default function AdminCourseDetailsPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 items-end">
-                  <div className="flex items-center gap-2 pb-3">
-                    <input 
-                      type="checkbox" 
-                      id="is_test"
-                      checked={newLesson.is_test || false}
-                      onChange={e => setNewLesson({...newLesson, is_test: e.target.checked})}
-                      className="h-5 w-5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                    />
-                    <label htmlFor="is_test" className="text-sm font-bold text-slate-700">Set as Test</label>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Test Category</label>
+                    <select 
+                      value={newLesson.test_type || 'practice'} onChange={e => setNewLesson({...newLesson, test_type: e.target.value as 'practice' | 'mini' | 'full'})}
+                      className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="practice">Practice</option>
+                      <option value="mini">Mini Test</option>
+                      <option value="full">Full Test</option>
+                    </select>
                   </div>
-                  {newLesson.is_test && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Test Type</label>
-                      <select 
-                        value={newLesson.test_type || 'practice'} onChange={e => setNewLesson({...newLesson, test_type: e.target.value as 'practice' | 'mini' | 'full'})}
-                        className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="practice">Practice</option>
-                        <option value="mini">Mini Test</option>
-                        <option value="full">Full Test</option>
-                      </select>
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Time Limit (mins)</label>
+                    <input 
+                      type="number"
+                      value={newLesson.time_limit} onChange={e => setNewLesson({...newLesson, time_limit: parseInt(e.target.value)})}
+                      className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Lesson Notes/Content (Optional Markdown)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Test Notes/Content (Optional Markdown)</label>
                   <textarea 
                     rows={3}
                     value={newLesson.content} onChange={e => setNewLesson({...newLesson, content: e.target.value})}
                     className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Brief theory notes if not using PDF..."
+                    placeholder="Brief theory notes or instructions..."
                   />
                 </div>
 
                 <div className="pt-2">
                   <button type="submit" disabled={uploadingPdf} className="bg-indigo-600 disabled:bg-slate-400 text-white px-6 py-2 rounded-lg font-bold">
-                    Save Lesson
+                    Save Test
                   </button>
                 </div>
               </form>
@@ -347,19 +344,20 @@ export default function AdminCourseDetailsPage() {
                     <h4 className="font-bold text-slate-900">{lesson.title}</h4>
                     <div className="flex gap-3 text-xs mt-1">
                       <span className="text-indigo-600 uppercase font-bold">{lesson.lesson_type}</span>
-                      {lesson.is_test && (
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                          lesson.test_type === 'full' ? 'bg-red-100 text-red-600' : 
-                          lesson.test_type === 'mini' ? 'bg-orange-100 text-orange-600' : 
-                          'bg-blue-100 text-blue-600'
-                        }`}>
-                          {lesson.test_type} Test
-                        </span>
-                      )}
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                        lesson.test_type === 'full' ? 'bg-red-100 text-red-600' : 
+                        lesson.test_type === 'mini' ? 'bg-orange-100 text-orange-600' : 
+                        'bg-blue-100 text-blue-600'
+                      }`}>
+                        {lesson.test_type} Test
+                      </span>
                       {lesson.pdf_url && <span className="text-emerald-600 font-medium flex items-center gap-1">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>
                         PDF Attached
                       </span>}
+                      {lesson.lesson_parts && lesson.lesson_parts.length > 0 && (
+                        <span className="text-violet-600 font-black">Parts: {lesson.lesson_parts.join(', ')}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -404,7 +402,7 @@ export default function AdminCourseDetailsPage() {
             
             {lessons.length === 0 && !showCreateLesson && (
               <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
-                <p className="text-slate-500">No lessons in this course yet.</p>
+                <p className="text-slate-500">No tests in this test set yet.</p>
               </div>
             )}
           </div>
@@ -412,14 +410,14 @@ export default function AdminCourseDetailsPage() {
 
         {/* Right Col: Course Info */}
         <div className="bg-slate-900 text-white p-6 rounded-2xl h-fit sticky top-6">
-          <h3 className="text-lg font-bold text-indigo-400 mb-4">Course Info</h3>
+          <h3 className="text-lg font-bold text-indigo-400 mb-4">Test Set Info</h3>
           <div className="space-y-4 text-sm">
             <div>
               <p className="text-slate-400 mb-1">Level</p>
               <p className="font-medium uppercase">{course.level}</p>
             </div>
             <div>
-              <p className="text-slate-400 mb-1">Total Lessons</p>
+              <p className="text-slate-400 mb-1">Total Tests</p>
               <p className="font-medium text-2xl">{lessons.length}</p>
             </div>
             <div>

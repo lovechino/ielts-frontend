@@ -67,7 +67,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navItems = [
     { label: 'Dashboard',         href: '/admin',                   icon: '⊞' },
-    { label: 'Course Management', href: '/admin/courses',            icon: '📚' },
     { label: 'Test Management',   href: '/admin/tests',              icon: '📝' },
     { label: 'Vocabulary',        href: '/admin/vocabulary',         icon: '🔤' },
     { label: 'Daily Challenges',  href: '/admin/daily-challenges',   icon: '📅' },

@@ -144,7 +144,11 @@ export default function AdminVocabularyPage() {
     e.preventDefault();
     try {
       await api.vocabulary.upsert({ ...vocabForm, vocab_course_id: vocabForm.vocab_course_id || selectedCourseId });
-      setVocabForm({ id: '', word: '', definition: '', definition_vi: '', example: '', example_vi: '', topic: 'General', pronunciation: '', part_of_speech: 'N', level: 'A1', vocab_course_id: selectedCourseId });
+      setVocabForm({ 
+        id: '', word: '', definition: '', definition_vi: '', example: '', example_vi: '', 
+        topic: 'General', pronunciation: '', part_of_speech: 'N', level: 'A1', 
+        vocab_course_id: selectedCourseId, is_priority: false, is_academic: false 
+      });
       loadWords(selectedCourseId);
       setActiveTab('list');
     } catch { alert('Lỗi khi lưu từ vựng.'); }
@@ -288,7 +292,7 @@ export default function AdminVocabularyPage() {
                     <textarea rows={3} value={courseForm[field]} onChange={e => setCourseForm({ ...courseForm, [field]: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
                   ) : (
-                    <input type="text" required={field !== 'description'} value={courseForm[field]}
+                    <input type="text" required value={courseForm[field]}
                       onChange={e => setCourseForm({ ...courseForm, [field]: field === 'slug' ? e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '') : e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
                   )}
