@@ -4,10 +4,28 @@ import React, { useState } from 'react';
 import { api } from '@/lib/api';
 
 export default function ContentLabPage() {
+  const [rawText, setRawText] = useState('');
   const [jsonInput, setJsonInput] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  async function handleGenerate() {
+    if (!rawText.trim()) return;
+    setGenerating(true);
+    setMessage(null);
+
+    try {
+      const res = await api.daily.generate(rawText);
+      setJsonInput(JSON.stringify(res, null, 2));
+      setMessage({ type: 'success', text: 'Đã tạo nội dung AI thành công!' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || "Không thể tạo nội dung AI" });
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   async function handlePush() {
     if (!jsonInput.trim()) return;
@@ -21,6 +39,7 @@ export default function ContentLabPage() {
       if (res.success) {
         setMessage({ type: 'success', text: `Đã đẩy thành công bài tập cho ngày ${date}` });
         setJsonInput('');
+        setRawText('');
       } else {
         throw new Error("Lỗi từ server");
       }
@@ -62,13 +81,41 @@ export default function ContentLabPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-black text-slate-400 uppercase mb-2">Dữ liệu JSON (từ Master Prompt)</label>
+            <div className="pt-4 border-t border-slate-100">
+              <label className="block text-xs font-black text-slate-400 uppercase mb-2">Văn bản gốc (Tiếng Anh)</label>
+              <textarea
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                placeholder="Dán nội dung bài báo/đoạn văn tiếng Anh vào đây..."
+                rows={8}
+                className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+              />
+              <button
+                onClick={handleGenerate}
+                disabled={generating || !rawText}
+                className="w-full py-3 bg-slate-900 text-white font-black rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {generating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Đang phân tích với AI...
+                  </>
+                ) : (
+                  <>
+                    <span>✨</span>
+                    Tự động tạo Content Lab
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100">
+              <label className="block text-xs font-black text-slate-400 uppercase mb-2">Kết quả JSON</label>
               <textarea
                 value={jsonInput}
                 onChange={(e) => setJsonInput(e.target.value)}
-                placeholder='{"metadata": {...}, "reading": {...}, "vocabulary": [...]}'
-                rows={20}
+                placeholder='Dữ liệu JSON sẽ xuất hiện ở đây sau khi Generate...'
+                rows={12}
                 className="w-full p-4 bg-slate-900 text-emerald-400 font-mono text-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -132,6 +179,51 @@ export default function ContentLabPage() {
                   </div>
                 </div>
 
+                {/* Listening Preview */}
+                {preview.listening && (
+                  <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                    <span className="text-[10px] font-black text-amber-500 uppercase">Listening Script</span>
+                    <p className="text-sm text-amber-900 mt-1 line-clamp-3 italic">
+                      {preview.listening.transcript}
+                    </p>
+                    <p className="text-[10px] font-bold text-amber-600 mt-2">
+                      {preview.listening.questions?.length || 0} câu hỏi điền từ/trắc nghiệm
+                    </p>
+                  </div>
+                )}
+
+                {/* Writing Preview */}
+                {preview.writing && (
+                  <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                    <span className="text-[10px] font-black text-rose-500 uppercase">IELTS Writing Task</span>
+                    <p className="text-sm text-rose-900 font-bold mt-1 line-clamp-2">
+                      {preview.writing.prompt}
+                    </p>
+                  </div>
+                )}
+
+                {/* Speaking Preview */}
+                {preview.speaking && (
+                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                    <span className="text-[10px] font-black text-blue-500 uppercase">IELTS Speaking Part 2 & 3</span>
+                    <p className="text-sm text-blue-900 mt-1 italic line-clamp-2">
+                      Cue: {preview.speaking.cue_card}
+                    </p>
+                  </div>
+                )}
+
+                {/* Grammar Preview */}
+                {preview.grammar && (
+                  <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
+                    <span className="text-[10px] font-black text-purple-500 uppercase">Grammar Highlights</span>
+                    <ul className="mt-1 space-y-1">
+                      {preview.grammar.map((g: any, i: number) => (
+                        <li key={i} className="text-xs font-bold text-purple-900">• {g.title}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
                   <p className="text-[10px] font-black text-emerald-400 uppercase mb-1">Checklist bài tập</p>
                   <ul className="space-y-2">
@@ -143,6 +235,18 @@ export default function ContentLabPage() {
                       <div className="w-4 h-4 bg-emerald-500 rounded flex items-center justify-center text-[10px] text-white">✓</div>
                       {preview.vocabulary?.length || 0} từ vựng mới
                     </li>
+                    {preview.listening && (
+                      <li className="flex items-center gap-2 text-xs font-bold text-emerald-700">
+                        <div className="w-4 h-4 bg-emerald-500 rounded flex items-center justify-center text-[10px] text-white">✓</div>
+                        Có bài tập Listening
+                      </li>
+                    )}
+                    {preview.writing && (
+                      <li className="flex items-center gap-2 text-xs font-bold text-emerald-700">
+                        <div className="w-4 h-4 bg-emerald-500 rounded flex items-center justify-center text-[10px] text-white">✓</div>
+                        Có đề thi Writing
+                      </li>
+                    )}
                   </ul>
                 </div>
               </div>

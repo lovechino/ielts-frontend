@@ -321,6 +321,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ challenge_id: challengeId }),
     }),
+    // Admin generate
+    generate: (rawText: string) => fetcher<any>('/admin/daily/generate', {
+      method: 'POST',
+      body: JSON.stringify({ raw_text: rawText }),
+    }),
     // Admin push
     push: (date: string, content: any) => fetcher<{ success: boolean }>('/admin/daily/push', {
       method: 'POST',
