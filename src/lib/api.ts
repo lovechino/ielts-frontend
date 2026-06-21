@@ -95,6 +95,8 @@ export interface Vocabulary {
   level?: string;
   is_priority?: boolean;
   is_academic?: boolean;
+  status?: 'draft' | 'published';
+  updated_at?: number;
 }
 
 export interface Lesson {
@@ -201,7 +203,7 @@ export interface ShopItem {
   id: string;
   name: string;
   description?: string;
-  item_type: 'avatar' | 'frame' | 'booster' | 'protection';
+  item_type: 'avatar' | 'booster' | 'protection' | 'expansion';
   sub_type?: 'static' | 'animated';
   rarity?: 'common' | 'rare' | 'epic' | 'legendary';
   price_coins: number;
@@ -276,7 +278,7 @@ export const api = {
     autoGenerate: (lessonId: string, rawText: string) => fetcher<{ job_id: string }>(`/admin/test-sets/lessons/${lessonId}/auto-generate`, { method: 'POST', body: JSON.stringify({ raw_text: rawText }) }),
   },
   tests: {
-    list: (type?: 'mini' | 'full') => cachedFetcher<Lesson[]>(`/tests${type ? `?type=${type}` : ''}`, TTL_STATIC),
+    list: (type?: 'mini' | 'full') => fetcher<Lesson[]>(`/tests${type ? `?type=${type}` : ''}`),
   },
   vocabulary: {
     // F1: Vocabulary is extremely static — cache 1 hour
@@ -310,6 +312,10 @@ export const api = {
       const qs = vocab_course_id ? `?vocab_course_id=${vocab_course_id}` : '';
       return `${API_BASE_URL}/admin/vocabulary/export-sql${qs}`;
     },
+    // New Sync-related Admin APIs
+    searchAdmin: (q: string) => fetcher<Vocabulary[]>(`/dictionary/admin/search?q=${encodeURIComponent(q)}`),
+    updateAdmin: (id: string, data: Partial<Vocabulary>) => fetcher<Vocabulary>(`/dictionary/admin/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    publish: () => fetcher<{ version: number }>('/dictionary/admin/publish', { method: 'POST' }),
   },
   daily: {
     getToday: () => fetcher<DailyChallenge>('/daily/today'),
@@ -440,6 +446,13 @@ export const api = {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify(data)
+    }),
+  },
+  contributions: {
+    listAdmin: (status: string, perPage: number = 50) => fetcher<any[]>(`/vault/contributions?status=${status}&per_page=${perPage}`),
+    reviewAdmin: (id: string, action: 'approve' | 'reject') => fetcher<{ success: boolean }>(`/vault/contributions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action }),
     }),
   }
 };

@@ -66,10 +66,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const navItems = [
-    { label: 'Dashboard',         href: '/admin',                   icon: '⊞' },
-    { label: 'Test Management',   href: '/admin/tests',              icon: '📝' },
-    { label: 'Vocabulary',        href: '/admin/vocabulary',         icon: '🔤' },
-    { label: 'Daily Challenges',  href: '/admin/daily-challenges',   icon: '📅' },
+    { label: 'Dashboard',           href: '/admin',                     icon: '⊞' },
+    { label: 'Vocabulary',          href: '/admin/vocabulary',          icon: '🔤' },
+    { label: 'Vocab Contributions', href: '/admin/vocab-contributions', icon: '📝' },
+    { label: 'Daily Challenges',    href: '/admin/daily-challenges',    icon: '📅' },
   ];
 
   return (

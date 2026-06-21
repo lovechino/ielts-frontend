@@ -65,9 +65,13 @@ export default function AdminVocabularyPage() {
   const [courses, setCourses] = useState<VocabularyCourse[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [words, setWords] = useState<Vocabulary[]>([]);
-  const [activeTab, setActiveTab] = useState<'courses' | 'list' | 'add' | 'bulk' | 'export'>('courses');
+  const [activeTab, setActiveTab] = useState<'courses' | 'list' | 'add' | 'bulk' | 'export' | 'publish'>('courses');
   const [loading, setLoading] = useState(true);
   const [wordsLoading, setWordsLoading] = useState(false);
+
+  // Publish state
+  const [draftCount, setDraftCount] = useState(0);
+  const [publishing, setPublishing] = useState(false);
 
   // Course form
   const [courseForm, setCourseForm] = useState({ id: '', title: '', slug: '', description: '' });
@@ -97,18 +101,47 @@ export default function AdminVocabularyPage() {
   const [wordPage, setWordPage] = useState(0);
   const PAGE_SIZE = 50;
 
-  useEffect(() => { loadCourses(); }, []);
+  useEffect(() => { 
+    loadCourses(); 
+    checkDrafts();
+  }, []);
 
-  async function loadCourses() {
+  async function checkDrafts() {
+    try {
+      const allWords = await api.vocabulary.searchAdmin('');
+      const count = allWords.filter(w => w.status === 'draft').length;
+      setDraftCount(count);
+    } catch {}
+  }
+
+  async function handlePublish() {
+    if (!confirm(`Bạn có chắc muốn phát hành ${draftCount} từ vựng mới?`)) return;
+    setPublishing(true);
+    try {
+      await api.vocabulary.publish();
+      alert('Phát hành thành công!');
+      checkDrafts();
+      if (selectedCourseId) loadWords(selectedCourseId);
+    } catch {
+      alert('Lỗi khi phát hành.');
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function loadCourses(forceSelectId?: string) {
     setLoading(true);
     try {
       const data = await api.vocabulary.listCourses();
       setCourses(data);
       if (data.length > 0) {
-        setSelectedCourseId(data[0].id);
-        setBulkCourseId(data[0].id);
-        setExportCourseId(data[0].id);
-        loadWords(data[0].id);
+        // Keep selected course if it still exists or force select new one, otherwise default to first course
+        const targetId = forceSelectId || (selectedCourseId && data.find(c => c.id === selectedCourseId) ? selectedCourseId : data[0].id);
+        const shouldReloadWords = targetId !== selectedCourseId || forceSelectId;
+        setSelectedCourseId(targetId);
+        setBulkCourseId(targetId);
+        setExportCourseId(targetId);
+        if (shouldReloadWords) loadWords(targetId);
       }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -150,6 +183,7 @@ export default function AdminVocabularyPage() {
         vocab_course_id: selectedCourseId, is_priority: false, is_academic: false 
       });
       loadWords(selectedCourseId);
+      checkDrafts();
       setActiveTab('list');
     } catch { alert('Lỗi khi lưu từ vựng.'); }
   }
@@ -245,6 +279,7 @@ export default function AdminVocabularyPage() {
   const TABS = [
     { key: 'courses', label: 'Khóa Học' },
     { key: 'list',    label: 'Danh Sách Từ' },
+    { key: 'publish', label: `🚀 Phát Hành (${draftCount})` },
     { key: 'add',     label: 'Thêm Thủ Công' },
     { key: 'bulk',    label: 'Nhập Hàng Loạt' },
     { key: 'export',  label: '📦 Xuất Dictionary' },
@@ -357,7 +392,14 @@ export default function AdminVocabularyPage() {
                   <tbody>
                     {pagedWords.map(w => (
                       <tr key={w.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                        <td className="p-4 font-black text-slate-800">{w.word}</td>
+                        <td className="p-4">
+                          <div className="flex flex-col">
+                            <span className="font-black text-slate-800">{w.word}</span>
+                            {w.status === 'draft' && (
+                              <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded w-fit mt-1">DRAFT</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="p-4 font-bold text-slate-500 text-xs">{w.part_of_speech}</td>
                         <td className="p-4">
                           <div className="flex gap-1">
@@ -388,6 +430,34 @@ export default function AdminVocabularyPage() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── TAB: PUBLISH CENTER ── */}
+      {activeTab === 'publish' && (
+        <div className="max-w-2xl mx-auto py-12 text-center space-y-8">
+          <div className="bg-indigo-600 text-white p-12 rounded-[3rem] shadow-xl shadow-indigo-100">
+            <h2 className="text-4xl font-black mb-4">Publish Center</h2>
+            <p className="text-indigo-100 font-medium mb-8">
+              Bạn đang có <span className="text-white font-black text-2xl underline underline-offset-8">{draftCount}</span> từ vựng đang chờ phát hành.
+            </p>
+            <button onClick={handlePublish} disabled={publishing || draftCount === 0}
+              className="px-12 py-5 bg-white text-indigo-600 font-black rounded-2xl text-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100">
+              {publishing ? 'Đang phát hành...' : '🚀 PHÁT HÀNH NGAY'}
+            </button>
+            <p className="mt-8 text-xs text-indigo-200 font-bold uppercase tracking-widest">
+              Sau khi nhấn, tất cả User Mobile sẽ nhận được bản cập nhật Incremental Sync.
+            </p>
+          </div>
+          
+          <div className="bg-amber-50 border border-amber-100 p-6 rounded-3xl text-left">
+            <h3 className="text-amber-700 font-black text-sm uppercase mb-3">Lưu ý về Incremental Sync</h3>
+            <ul className="text-sm text-amber-800 space-y-2 list-disc list-inside">
+              <li>Chỉ những từ có trạng thái <span className="font-bold">published</span> mới được sync xuống Mobile.</li>
+              <li>Khi bạn Sửa (Update) một từ, nó sẽ tự động chuyển về <span className="font-bold">draft</span>.</li>
+              <li>Bạn phải nhấn Phát hành để chuyển tất cả draft → published và tăng version.</li>
+            </ul>
+          </div>
         </div>
       )}
 

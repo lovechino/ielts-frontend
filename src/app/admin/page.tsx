@@ -6,18 +6,18 @@ import { api, AdminStats } from '@/lib/api';
 
 const NAV_CARDS = [
   {
-    title: 'Test Management',
-    desc: 'Quản lý bộ đề thi (IELTS, TOEIC...), bài luyện tập và tài liệu PDF.',
-    href: '/admin/tests',
-    icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
-    color: 'bg-indigo-100 text-indigo-600',
-  },
-  {
     title: 'Vocabulary Center',
     desc: 'Quản lý 100k từ, bulk import, và đóng gói dictionary.db.',
     href: '/admin/vocabulary',
     icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>,
     color: 'bg-blue-100 text-blue-600',
+  },
+  {
+    title: 'Vocab Contributions',
+    desc: 'Duyệt từ vựng do cộng đồng đóng góp và trao thưởng.',
+    href: '/admin/vocab-contributions',
+    icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
+    color: 'bg-purple-100 text-purple-600',
   },
   {
     title: 'Shop & Economy',

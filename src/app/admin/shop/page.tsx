@@ -95,7 +95,7 @@ export default function ShopAdminPage() {
               <div className="flex items-center gap-2 mb-1">
                 <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
                   item.item_type === 'avatar' ? 'bg-blue-100 text-blue-600' :
-                  item.item_type === 'frame' ? 'bg-purple-100 text-purple-600' :
+                  item.item_type === 'protection' ? 'bg-emerald-100 text-emerald-600' :
                   'bg-orange-100 text-orange-600'
                 }`}>
                   {item.item_type}
@@ -165,9 +165,9 @@ export default function ShopAdminPage() {
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold"
                   >
                     <option value="avatar">Avatar</option>
-                    <option value="frame">Avatar Frame</option>
                     <option value="booster">XP Booster</option>
                     <option value="protection">Streak Freeze</option>
+                    <option value="expansion">Vault Expansion</option>
                   </select>
                 </div>
                 <div>
