@@ -7,7 +7,7 @@ import { api, AdminStats } from '@/lib/api';
 const NAV_CARDS = [
   {
     title: 'Vocabulary Center',
-    desc: 'Quản lý 100k từ, bulk import, và đóng gói dictionary.db.',
+    desc: 'Quan ly 450k tu, bulk import, va dong goi dictionary.db.',
     href: '/admin/vocabulary',
     icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>,
     color: 'bg-blue-100 text-blue-600',
@@ -56,7 +56,8 @@ export default function AdminDashboard() {
 
   const statItems = stats ? [
     { label: 'Total Users',      value: fmt(stats.total_users),           sub: `${fmt(stats.premium_users)} premium` },
-    { label: 'Words in DB',      value: fmt(stats.total_words),           sub: 'vocabulary entries' },
+    { label: 'Vocabulary in DB', value: fmt(stats.total_words),            sub: `${fmt(stats.published_words)} published` },
+    { label: 'Offline Target',   value: fmt(stats.dictionary_target_words), sub: stats.latest_dictionary_version ? `latest ${stats.latest_dictionary_version}` : '450k target' },
     { label: 'Tests Completed',  value: fmt(stats.total_submissions),     sub: 'all time' },
     { label: 'Speaking Sessions',value: fmt(stats.total_speaking_sessions), sub: 'completed' },
     { label: 'Lessons',          value: fmt(stats.total_lessons),         sub: 'in system' },

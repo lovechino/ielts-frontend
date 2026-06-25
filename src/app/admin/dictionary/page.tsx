@@ -121,7 +121,7 @@ export default function AdminDictionaryPage() {
             <p className="font-bold">Full Update (isFullUpdate = true):</p>
             <ol className="list-decimal list-inside space-y-1 text-blue-700">
               <li>Export SQL từ Admin → build dictionary.db</li>
-              <li>Upload lên Cloudflare R2 / GitHub Releases</li>
+              <li>Upload lên Cloudflare R2 / CDN</li>
               <li>Set version + url ở đây</li>
               <li>App tải toàn bộ file mới (~18MB)</li>
             </ol>

@@ -77,6 +77,7 @@ export interface VocabularyCourse {
   description?: string;
   thumbnail_url?: string;
   structure_type?: 'cefr_levels' | 'direct_topics';
+  word_count?: number;
 }
 
 export interface Vocabulary {
@@ -97,6 +98,16 @@ export interface Vocabulary {
   is_academic?: boolean;
   status?: 'draft' | 'published';
   updated_at?: number;
+}
+
+export interface BulkImportResult {
+  count: number;
+  mapped?: number;
+  failed: number;
+  skipped?: number;
+  missing?: string[];
+  missing_count?: number;
+  errors: { index: number; word?: string; message: string }[];
 }
 
 export interface Lesson {
@@ -187,6 +198,11 @@ export interface AdminStats {
   total_users: number;
   premium_users: number;
   total_words: number;
+  published_words: number;
+  dictionary_words: number;
+  dictionary_target_words: number;
+  latest_dictionary_version: string | null;
+  latest_dictionary_word_count: number | null;
   total_lessons: number;
   total_submissions: number;
   total_speaking_sessions: number;
@@ -298,13 +314,14 @@ export const api = {
     createCourse: (data: Partial<VocabularyCourse>) => fetcher<VocabularyCourse>('/admin/vocabulary/paths', { method: 'POST', body: JSON.stringify(data) }),
     updateCourse: (id: string, data: Partial<VocabularyCourse>) => fetcher<VocabularyCourse>(`/admin/vocabulary/paths/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteCourse: (id: string) => fetcher<{ success: boolean }>(`/admin/vocabulary/paths/${id}`, { method: 'DELETE' }),
+    removeFromCourse: (courseId: string, vocabId: string | number) => fetcher<{ success: boolean }>(`/admin/vocabulary/paths/${courseId}/words/${vocabId}`, { method: 'DELETE' }),
 
     // Admin vocab operations
     upsert: (data: Partial<Vocabulary>) => fetcher<Vocabulary>('/admin/vocabulary/', { method: 'POST', body: JSON.stringify(data) }),
     delete: (id: string) => fetcher<{ success: boolean }>(`/admin/vocabulary/${id}`, { method: 'DELETE' }),
-    bulkImport: (vocab_course_id: string, words: Partial<Vocabulary>[]) => fetcher<{ count: number }>('/admin/vocabulary/bulk-import', {
+    bulkImport: (vocab_course_id: string, words: Partial<Vocabulary>[]) => fetcher<BulkImportResult>(`/admin/vocabulary/paths/${vocab_course_id}/words/import`, {
       method: 'POST',
-      body: JSON.stringify({ vocab_course_id, words }),
+      body: JSON.stringify({ words }),
     }),
     /** Tải file SQL export để đóng gói dictionary.db */
     exportSqlUrl: (vocab_course_id?: string) => {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { api, VocabularyCourse, Vocabulary } from '@/lib/api';
+import { api, BulkImportResult, VocabularyCourse, Vocabulary } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth-token';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -13,6 +13,15 @@ interface BulkValidationResult {
   preview: Partial<Vocabulary>[];
 }
 
+type BulkImportSummary = {
+  count: number;
+  mapped?: number;
+  failed: number;
+  missing?: string[];
+  missing_count?: number;
+  errors: BulkImportResult['errors'];
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseBulkWords(text: string): Partial<Vocabulary>[] {
@@ -22,7 +31,8 @@ function parseBulkWords(text: string): Partial<Vocabulary>[] {
   }
   return text.trim().split('\n')
     .map(line => {
-      const [word, def, defVi, ex, exVi, pos, pron, lvl, tpc] = line.split('|');
+      const delimiter = line.includes('|') ? '|' : ',';
+      const [word, def, defVi, ex, exVi, pos, pron, lvl, tpc] = splitBulkLine(line, delimiter);
       return {
         word: word?.trim(),
         definition: def?.trim() || '',
@@ -38,6 +48,31 @@ function parseBulkWords(text: string): Partial<Vocabulary>[] {
     .filter(w => w.word);
 }
 
+function splitBulkLine(line: string, delimiter: string) {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+    if (char === '"' && next === '"') {
+      current += '"';
+      i += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === delimiter && !inQuotes) {
+      values.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  values.push(current);
+  return values;
+}
+
 function validateBulkWords(words: Partial<Vocabulary>[]): BulkValidationResult {
   const seen = new Set<string>();
   const duplicates: string[] = [];
@@ -46,9 +81,6 @@ function validateBulkWords(words: Partial<Vocabulary>[]): BulkValidationResult {
 
   words.forEach((w, i) => {
     if (!w.word?.trim()) { errors.push(`Dòng ${i + 1}: thiếu từ`); return; }
-    if (!w.definition_vi?.trim() && !w.definition?.trim()) {
-      errors.push(`Dòng ${i + 1} (${w.word}): thiếu định nghĩa`); return;
-    }
     if (seen.has(w.word.toLowerCase())) {
       duplicates.push(w.word); return;
     }
@@ -59,13 +91,25 @@ function validateBulkWords(words: Partial<Vocabulary>[]): BulkValidationResult {
   return { valid: valid.length, duplicates, errors, preview: valid.slice(0, 5) };
 }
 
+function getValidBulkWords(words: Partial<Vocabulary>[]) {
+  const seen = new Set<string>();
+  return words.filter((w) => {
+    const word = w.word?.trim();
+    if (!word) return false;
+    const key = word.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminVocabularyPage() {
   const [courses, setCourses] = useState<VocabularyCourse[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [words, setWords] = useState<Vocabulary[]>([]);
-  const [activeTab, setActiveTab] = useState<'courses' | 'list' | 'add' | 'bulk' | 'export' | 'publish'>('courses');
+  const [activeTab, setActiveTab] = useState<'courses' | 'list' | 'add' | 'attach' | 'bulk' | 'export' | 'publish'>('courses');
   const [loading, setLoading] = useState(true);
   const [wordsLoading, setWordsLoading] = useState(false);
 
@@ -89,7 +133,15 @@ export default function AdminVocabularyPage() {
   const [bulkValidation, setBulkValidation] = useState<BulkValidationResult | null>(null);
   const [bulkImporting, setBulkImporting] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0); // 0-100
-  const [bulkDone, setBulkDone] = useState<{ count: number } | null>(null);
+  const [bulkDone, setBulkDone] = useState<BulkImportSummary | null>(null);
+
+  // Attach existing master words to a course
+  const [attachQuery, setAttachQuery] = useState('');
+  const [attachResults, setAttachResults] = useState<Vocabulary[]>([]);
+  const [attachSelected, setAttachSelected] = useState<Record<string, Vocabulary>>({});
+  const [attachLoading, setAttachLoading] = useState(false);
+  const [attachCourseId, setAttachCourseId] = useState('');
+  const [attachMessage, setAttachMessage] = useState('');
 
   // Export state
   const [exportCourseId, setExportCourseId] = useState('');
@@ -140,6 +192,7 @@ export default function AdminVocabularyPage() {
         const shouldReloadWords = targetId !== selectedCourseId || forceSelectId;
         setSelectedCourseId(targetId);
         setBulkCourseId(targetId);
+        setAttachCourseId(targetId);
         setExportCourseId(targetId);
         if (shouldReloadWords) loadWords(targetId);
       }
@@ -160,8 +213,13 @@ export default function AdminVocabularyPage() {
   async function handleSaveCourse(e: React.FormEvent) {
     e.preventDefault();
     try {
-      if (courseForm.id) await api.vocabulary.updateCourse(courseForm.id, courseForm);
-      else await api.vocabulary.createCourse(courseForm);
+      const payload = {
+        title: courseForm.title.trim(),
+        slug: courseForm.slug.trim(),
+        description: courseForm.description.trim(),
+      };
+      if (courseForm.id) await api.vocabulary.updateCourse(courseForm.id, payload);
+      else await api.vocabulary.createCourse(payload);
       setCourseForm({ id: '', title: '', slug: '', description: '' });
       loadCourses();
     } catch { alert('Lỗi khi lưu khóa học.'); }
@@ -173,25 +231,48 @@ export default function AdminVocabularyPage() {
     catch { alert('Lỗi khi xóa khóa học.'); }
   }
 
+  function selectCourseForAction(courseId: string, tab: 'list' | 'add' | 'attach' | 'bulk') {
+    setSelectedCourseId(courseId);
+    setBulkCourseId(courseId);
+    setAttachCourseId(courseId);
+    setExportCourseId(courseId);
+    setBulkDone(null);
+    setAttachMessage('');
+    if (tab === 'add') {
+      setVocabForm({
+        id: '', word: '', definition: '', definition_vi: '', example: '', example_vi: '',
+        topic: 'General', pronunciation: '', part_of_speech: 'N', level: 'A1',
+        vocab_course_id: courseId, is_priority: false, is_academic: false,
+      });
+    }
+    if (tab === 'list') loadWords(courseId);
+    setActiveTab(tab);
+  }
+
   async function handleSaveVocab(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await api.vocabulary.upsert({ ...vocabForm, vocab_course_id: vocabForm.vocab_course_id || selectedCourseId });
+      const targetCourseId = vocabForm.vocab_course_id || selectedCourseId;
+      const { vocab_course_id: _ignoredCourseId, ...masterWord } = vocabForm;
+      await api.vocabulary.upsert(masterWord);
+      if (targetCourseId && masterWord.word) {
+        await api.vocabulary.bulkImport(targetCourseId, [{ word: masterWord.word }]);
+      }
       setVocabForm({ 
         id: '', word: '', definition: '', definition_vi: '', example: '', example_vi: '', 
         topic: 'General', pronunciation: '', part_of_speech: 'N', level: 'A1', 
-        vocab_course_id: selectedCourseId, is_priority: false, is_academic: false 
+        vocab_course_id: targetCourseId, is_priority: false, is_academic: false 
       });
-      loadWords(selectedCourseId);
+      loadWords(targetCourseId);
       checkDrafts();
       setActiveTab('list');
-    } catch { alert('Lỗi khi lưu từ vựng.'); }
+    } catch { alert('Loi khi luu tu vung.'); }
   }
 
   async function handleDeleteVocab(id: string) {
-    if (!confirm('Xóa từ vựng này?')) return;
-    try { await api.vocabulary.delete(id); loadWords(selectedCourseId); }
-    catch { alert('Lỗi khi xóa từ vựng.'); }
+    if (!confirm('Go tu nay khoi khoa hoc hien tai? Tu goc trong master dictionary van duoc giu lai.')) return;
+    try { await api.vocabulary.removeFromCourse(selectedCourseId, id); loadWords(selectedCourseId); loadCourses(selectedCourseId); }
+    catch { alert('Loi khi go tu khoi khoa hoc.'); }
   }
 
   // ── Bulk Import Pro ──────────────────────────────────────────────────────────
@@ -208,6 +289,14 @@ export default function AdminVocabularyPage() {
     }
   }
 
+  async function handleBulkFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    handleBulkTextChange(text);
+    e.target.value = '';
+  }
+
   async function handleBulkImport() {
     if (!bulkText.trim() || !bulkValidation || bulkValidation.valid === 0) return;
     setBulkImporting(true);
@@ -216,19 +305,32 @@ export default function AdminVocabularyPage() {
 
     try {
       const allWords = parseBulkWords(bulkText);
-      const validWords = allWords.filter(w => w.word?.trim());
+      const validWords = getValidBulkWords(allWords);
 
-      // Chunk into batches of 200 for progress tracking
-      const CHUNK = 200;
+      // Chunk into Worker-safe request sizes while keeping imports fast.
+      const CHUNK = 500;
       let imported = 0;
+      let processed = 0;
+      let failed = 0;
+      const importErrors: BulkImportResult['errors'] = [];
       for (let i = 0; i < validWords.length; i += CHUNK) {
         const chunk = validWords.slice(i, i + CHUNK);
-        await api.vocabulary.bulkImport(bulkCourseId, chunk);
-        imported += chunk.length;
-        setBulkProgress(Math.round((imported / validWords.length) * 100));
+        const result = await api.vocabulary.bulkImport(bulkCourseId, chunk);
+        imported += result.mapped ?? result.count;
+        processed += chunk.length;
+        failed += result.failed || result.missing_count || 0;
+        importErrors.push(...(result.errors || []).map(error => ({ ...error, index: error.index + i })));
+        if (result.missing?.length) {
+          importErrors.push(...result.missing.slice(0, 20).map((word, index) => ({
+            index: i + index,
+            word,
+            message: 'Not found in master dictionary',
+          })));
+        }
+        setBulkProgress(Math.round((processed / validWords.length) * 100));
       }
 
-      setBulkDone({ count: imported });
+      setBulkDone({ count: imported, mapped: imported, failed, errors: importErrors.slice(0, 20) });
       setBulkText('');
       setBulkValidation(null);
       setSelectedCourseId(bulkCourseId);
@@ -242,6 +344,49 @@ export default function AdminVocabularyPage() {
   }
 
   // ── Dictionary Export ────────────────────────────────────────────────────────
+
+  async function handleAttachSearch() {
+    const query = attachQuery.trim();
+    if (!query) return;
+    setAttachLoading(true);
+    setAttachMessage('');
+    try {
+      const results = await api.vocabulary.searchAdmin(query);
+      setAttachResults(results.slice(0, 80));
+    } catch (err: any) {
+      setAttachMessage(err.message || 'Search failed.');
+    } finally {
+      setAttachLoading(false);
+    }
+  }
+
+  function toggleAttachWord(word: Vocabulary) {
+    setAttachSelected((prev) => {
+      const next = { ...prev };
+      if (next[word.id]) delete next[word.id];
+      else next[word.id] = word;
+      return next;
+    });
+  }
+
+  async function handleAttachSelected() {
+    const selected = Object.values(attachSelected);
+    if (!attachCourseId || selected.length === 0) return;
+    setAttachLoading(true);
+    setAttachMessage('');
+    try {
+      const result = await api.vocabulary.bulkImport(attachCourseId, selected.map((item) => ({ word: item.word })));
+      setAttachSelected({});
+      setAttachMessage(`Mapped ${result.mapped ?? result.count} words. Missing ${result.missing_count || 0}.`);
+      setSelectedCourseId(attachCourseId);
+      await loadWords(attachCourseId);
+      await loadCourses(attachCourseId);
+    } catch (err: any) {
+      setAttachMessage(err.message || 'Attach failed.');
+    } finally {
+      setAttachLoading(false);
+    }
+  }
 
   async function handleExportSQL() {
     setExporting(true);
@@ -281,6 +426,7 @@ export default function AdminVocabularyPage() {
     { key: 'list',    label: 'Danh Sách Từ' },
     { key: 'publish', label: `🚀 Phát Hành (${draftCount})` },
     { key: 'add',     label: 'Thêm Thủ Công' },
+    { key: 'attach',  label: 'Gan Tu Goc' },
     { key: 'bulk',    label: 'Nhập Hàng Loạt' },
     { key: 'export',  label: '📦 Xuất Dictionary' },
   ] as const;
@@ -351,6 +497,10 @@ export default function AdminVocabularyPage() {
                     <td className="p-4 font-black text-slate-800">{c.title}</td>
                     <td className="p-4 font-semibold text-indigo-600">/{c.slug}</td>
                     <td className="p-4 text-right space-x-2">
+                      <button onClick={() => selectCourseForAction(c.id, 'list')} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-black transition-all">Xem t&#7915;</button>
+                      <button onClick={() => selectCourseForAction(c.id, 'add')} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-black transition-all">+ Th&#234;m t&#7915;</button>
+                      <button onClick={() => selectCourseForAction(c.id, 'attach')} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-black transition-all">Gan tu goc</button>
+                      <button onClick={() => selectCourseForAction(c.id, 'bulk')} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-xs font-black transition-all">Nh&#7853;p nhanh</button>
                       <button onClick={() => setCourseForm({ id: c.id, title: c.title, slug: c.slug, description: c.description || '' })} className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-xs font-black transition-all">Sửa</button>
                       <button onClick={() => handleDeleteCourse(c.id)} className="px-3 py-1.5 bg-slate-100 hover:bg-red-50 hover:text-red-600 rounded-lg text-xs font-black transition-all">Xóa</button>
                     </td>
@@ -526,6 +676,75 @@ export default function AdminVocabularyPage() {
       )}
 
       {/* ── TAB: BULK IMPORT PRO ── */}
+      {activeTab === 'attach' && (
+        <div className="space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black text-slate-900">Gan tu goc vao khoa</h2>
+                <p className="text-slate-500 text-sm mt-1">Tim trong master dictionary 450k va gan vao khoa con bang mapping.</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-black text-indigo-600">{Object.keys(attachSelected).length}</p>
+                <p className="text-xs font-black text-slate-400 uppercase">da chon</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[260px_1fr_auto] gap-3">
+              <select value={attachCourseId} onChange={e => setAttachCourseId(e.target.value)}
+                className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-600">
+                {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </select>
+              <input
+                value={attachQuery}
+                onChange={e => setAttachQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAttachSearch(); }}
+                placeholder="Search master word, e.g. academic"
+                className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold"
+              />
+              <button type="button" onClick={handleAttachSearch} disabled={attachLoading || !attachQuery.trim()}
+                className="px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-black disabled:opacity-50">
+                Search
+              </button>
+            </div>
+
+            {attachMessage && (
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700">
+                {attachMessage}
+              </div>
+            )}
+
+            <div className="max-h-[460px] overflow-auto rounded-2xl border border-slate-100">
+              {attachResults.length === 0 ? (
+                <div className="p-8 text-center text-sm font-bold text-slate-400">Search master dictionary to attach words.</div>
+              ) : (
+                attachResults.map(word => {
+                  const selected = Boolean(attachSelected[word.id]);
+                  return (
+                    <button
+                      key={word.id}
+                      type="button"
+                      onClick={() => toggleAttachWord(word)}
+                      className={`flex w-full items-center gap-4 border-b border-slate-100 px-4 py-3 text-left transition-all ${selected ? 'bg-indigo-50' : 'bg-white hover:bg-slate-50'}`}
+                    >
+                      <span className={`h-5 w-5 rounded-md border flex items-center justify-center text-xs font-black ${selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 text-transparent'}`}>✓</span>
+                      <span className="w-48 truncate font-black text-slate-800">{word.word}</span>
+                      <span className="w-20 rounded-full bg-slate-100 px-2 py-0.5 text-center text-[10px] font-black text-slate-500">{word.level || '-'}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-500">{word.definition_vi || word.definition}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            <button type="button" onClick={handleAttachSelected} disabled={attachLoading || !attachCourseId || Object.keys(attachSelected).length === 0}
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-sm rounded-xl transition-all shadow-sm">
+              {attachLoading ? 'Dang xu ly...' : `Gan ${Object.keys(attachSelected).length} tu vao khoa`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'bulk' && (
         <div className="space-y-6">
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
@@ -537,6 +756,7 @@ export default function AdminVocabularyPage() {
               {bulkDone && (
                 <div className="bg-emerald-50 border border-emerald-200 px-5 py-3 rounded-2xl text-center">
                   <p className="text-2xl font-black text-emerald-600">+{bulkDone.count.toLocaleString()}</p>
+                  {bulkDone.failed > 0 && <p className="mt-1 text-xs font-black text-red-500">{bulkDone.failed} errors</p>}
                   <p className="text-xs font-black text-emerald-500 uppercase">Từ đã nhập</p>
                 </div>
               )}
@@ -548,11 +768,15 @@ export default function AdminVocabularyPage() {
                 <select value={bulkCourseId} onChange={e => setBulkCourseId(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-600">
                   {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                 </select>
+                <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-2 text-xs font-black text-indigo-600 hover:bg-indigo-100">
+                  Upload file .json/.csv/.txt
+                  <input type="file" accept=".json,.csv,.txt" onChange={handleBulkFileChange} className="hidden" />
+                </label>
               </div>
               <div className="bg-slate-900 p-4 rounded-2xl text-xs font-mono text-emerald-400 leading-relaxed">
                 <p className="text-slate-400 font-black uppercase mb-2">Pipe format:</p>
                 <p>word | definition | definition_vi | example | example_vi | pos | ipa | level | topic</p>
-                <p className="text-slate-500 mt-2">Hoặc JSON array: [&#123;"word":"...","definition_vi":"..."&#125;]</p>
+                <p className="text-slate-500 mt-2">JSON array: [&#123;&quot;word&quot;:&quot;...&quot;,&quot;definition_vi&quot;:&quot;...&quot;&#125;]</p>
               </div>
             </div>
 
@@ -603,6 +827,19 @@ export default function AdminVocabularyPage() {
               </div>
             )}
 
+            {(bulkDone?.errors?.length ?? 0) > 0 && (
+              <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
+                <p className="mb-3 text-xs font-black uppercase text-red-500">Import errors</p>
+                <div className="max-h-44 space-y-2 overflow-auto">
+                  {(bulkDone?.errors ?? []).map((error, i) => (
+                    <div key={`${error.index}-${i}`} className="rounded-xl bg-white px-4 py-2 text-xs font-bold text-red-600">
+                      Row {error.index + 1}{error.word ? ` (${error.word})` : ''}: {error.message}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Progress bar */}
             {bulkImporting && (
               <div className="space-y-2">
@@ -635,7 +872,7 @@ export default function AdminVocabularyPage() {
                 { step: '1', title: 'Export SQL', desc: 'Tải file .sql chứa toàn bộ INSERT statements', color: 'bg-indigo-500' },
                 { step: '2', title: 'Build SQLite', desc: 'Chạy: sqlite3 dictionary.db < file.sql', color: 'bg-violet-500' },
                 { step: '3', title: 'Nén file', desc: 'gzip dictionary.db → dictionary.db.gz (~18MB)', color: 'bg-blue-500' },
-                { step: '4', title: 'Upload R2', desc: 'Upload lên Cloudflare R2 / GitHub Releases', color: 'bg-emerald-500' },
+                { step: '4', title: 'Upload R2', desc: 'Upload lên Cloudflare R2 / CDN', color: 'bg-emerald-500' },
               ].map(s => (
                 <div key={s.step} className="bg-white/5 rounded-2xl p-4">
                   <div className={`w-8 h-8 ${s.color} rounded-lg flex items-center justify-center font-black text-sm mb-3`}>{s.step}</div>
@@ -685,7 +922,7 @@ export default function AdminVocabularyPage() {
               <p className="text-xs font-black text-amber-600 uppercase mb-2">⚠ Lưu ý quan trọng</p>
               <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
                 <li>File SQL có thể lớn (100k từ ≈ 30-50MB). Quá trình tạo mất 10-30 giây.</li>
-                <li>Sau khi build dictionary.db, cần upload lên GitHub Releases hoặc Cloudflare R2.</li>
+                <li>Sau khi build dictionary.db, cần upload lên Cloudflare R2 hoặc CDN.</li>
                 <li>Cập nhật URL trong <code className="font-mono bg-amber-100 px-1 rounded">useDownloadStore.ts</code> của Mobile app.</li>
               </ul>
             </div>
