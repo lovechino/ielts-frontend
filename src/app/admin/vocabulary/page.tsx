@@ -109,6 +109,8 @@ export default function AdminVocabularyPage() {
   const [courses, setCourses] = useState<VocabularyCourse[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [words, setWords] = useState<Vocabulary[]>([]);
+  const [sections, setSections] = useState<{name: string, word_count: number}[]>([]);
+  const [selectedSection, setSelectedSection] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'courses' | 'list' | 'add' | 'attach' | 'bulk' | 'export' | 'publish'>('courses');
   const [loading, setLoading] = useState(true);
   const [wordsLoading, setWordsLoading] = useState(false);
@@ -200,11 +202,14 @@ export default function AdminVocabularyPage() {
     finally { setLoading(false); }
   }
 
-  async function loadWords(courseId: string) {
+  async function loadWords(courseId: string, sectionVal: string = '') {
     setWordsLoading(true);
     setWordPage(0);
     try {
-      const data = await api.vocabulary.list({ vocab_course_id: courseId, limit: 2000 });
+      const sects = await api.vocabulary.courseSections(courseId);
+      setSections(sects);
+      
+      const data = await api.vocabulary.list({ vocab_course_id: courseId, limit: 2000, section: sectionVal || undefined });
       setWords(data);
     } catch (err) { console.error(err); }
     finally { setWordsLoading(false); }
@@ -245,7 +250,10 @@ export default function AdminVocabularyPage() {
         vocab_course_id: courseId, is_priority: false, is_academic: false,
       });
     }
-    if (tab === 'list') loadWords(courseId);
+    if (tab === 'list') {
+      setSelectedSection('');
+      loadWords(courseId, '');
+    }
     setActiveTab(tab);
   }
 
@@ -516,10 +524,17 @@ export default function AdminVocabularyPage() {
       {activeTab === 'list' && (
         <div className="space-y-4">
           <div className="flex gap-4 flex-wrap items-center bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
-            <select value={selectedCourseId} onChange={e => { setSelectedCourseId(e.target.value); loadWords(e.target.value); }}
+            <select value={selectedCourseId} onChange={e => { setSelectedCourseId(e.target.value); setSelectedSection(''); loadWords(e.target.value, ''); }}
               className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-black text-slate-600">
               {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>
+            {sections.length > 0 && (
+              <select value={selectedSection} onChange={e => { setSelectedSection(e.target.value); loadWords(selectedCourseId, e.target.value); }}
+                className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-black text-slate-600">
+                <option value="">Tất cả các bài ({sections.reduce((a, b) => a + b.word_count, 0)} từ)</option>
+                {sections.map(s => <option key={s.name} value={s.name}>{s.name} ({s.word_count})</option>)}
+              </select>
+            )}
             <input type="text" placeholder="Tìm từ hoặc nghĩa..." value={wordSearch} onChange={e => { setWordSearch(e.target.value); setWordPage(0); }}
               className="flex-1 min-w-[200px] px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
             <span className="text-xs font-bold text-slate-400">{filteredWords.length.toLocaleString()} / {words.length.toLocaleString()} từ</span>
