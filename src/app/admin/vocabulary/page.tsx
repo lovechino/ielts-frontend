@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { api, BulkImportResult, VocabularyCourse, Vocabulary } from '@/lib/api';
+import { api, BulkImportResult, VocabularyCourse, Vocabulary, VocabLesson } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth-token';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -111,13 +111,21 @@ export default function AdminVocabularyPage() {
   const [words, setWords] = useState<Vocabulary[]>([]);
   const [sections, setSections] = useState<{name: string, word_count: number}[]>([]);
   const [selectedSection, setSelectedSection] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'courses' | 'list' | 'add' | 'attach' | 'bulk' | 'export' | 'publish'>('courses');
+  const [activeTab, setActiveTab] = useState<'courses' | 'list' | 'add' | 'attach' | 'bulk' | 'export' | 'publish' | 'lessons'>('courses');
   const [loading, setLoading] = useState(true);
   const [wordsLoading, setWordsLoading] = useState(false);
 
   // Publish state
   const [draftCount, setDraftCount] = useState(0);
   const [publishing, setPublishing] = useState(false);
+
+  // Lesson management state
+  const [lessons, setLessons] = useState<VocabLesson[]>([]);
+  const [lessonsLoading, setLessonsLoading] = useState(false);
+  const [lessonForm, setLessonForm] = useState({ id: '', title: '', description: '' });
+  const [selectedLessonId, setSelectedLessonId] = useState('');
+  const [bulkLessonId, setBulkLessonId] = useState('');
+  const [vocabLessonId, setVocabLessonId] = useState('');
 
   // Course form
   const [courseForm, setCourseForm] = useState({ id: '', title: '', slug: '', description: '' });
@@ -143,6 +151,7 @@ export default function AdminVocabularyPage() {
   const [attachSelected, setAttachSelected] = useState<Record<string, Vocabulary>>({});
   const [attachLoading, setAttachLoading] = useState(false);
   const [attachCourseId, setAttachCourseId] = useState('');
+  const [attachLessonId, setAttachLessonId] = useState('');
   const [attachMessage, setAttachMessage] = useState('');
 
   // Export state
@@ -189,7 +198,6 @@ export default function AdminVocabularyPage() {
       const data = await api.vocabulary.listCourses();
       setCourses(data);
       if (data.length > 0) {
-        // Keep selected course if it still exists or force select new one, otherwise default to first course
         const targetId = forceSelectId || (selectedCourseId && data.find(c => c.id === selectedCourseId) ? selectedCourseId : data[0].id);
         const shouldReloadWords = targetId !== selectedCourseId || forceSelectId;
         setSelectedCourseId(targetId);
@@ -197,12 +205,100 @@ export default function AdminVocabularyPage() {
         setAttachCourseId(targetId);
         setExportCourseId(targetId);
         if (shouldReloadWords) loadWords(targetId);
+        loadLessons(targetId);
       }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }
 
+  async function refreshCourses() {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8787/api/v1'}/vocabulary/paths`, { cache: 'no-store' });
+      const json = await res.json();
+      const data = json.data || [];
+      setCourses(data);
+      if (data.length > 0) {
+        const targetId = data.find((c: VocabularyCourse) => selectedCourseId && c.id === selectedCourseId)?.id || data[0].id;
+        setSelectedCourseId(targetId);
+        setBulkCourseId(targetId);
+        setAttachCourseId(targetId);
+        setExportCourseId(targetId);
+        loadWords(targetId);
+        loadLessons(targetId);
+      } else {
+        setSelectedCourseId('');
+        setBulkCourseId('');
+        setAttachCourseId('');
+        setExportCourseId('');
+        setSelectedLessonId('');
+        setBulkLessonId('');
+        setWords([]);
+        setLessons([]);
+        setSections([]);
+      }
+    } catch (err) { console.error(err); }
+  }
+
+  async function loadLessons(courseId: string) {
+    if (!courseId) return;
+    setLessonsLoading(true);
+    try {
+      const data = await api.vocabulary.listLessons(courseId);
+      setLessons(data);
+      if (data.length > 0 && !selectedLessonId) {
+        setSelectedLessonId(data[0].id);
+        setBulkLessonId(data[0].id);
+      }
+    } catch (err) { console.error(err); }
+    finally { setLessonsLoading(false); }
+  }
+
+  async function handleSaveLesson(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      if (lessonForm.id) {
+        await api.vocabulary.updateLesson(selectedCourseId, lessonForm.id, {
+          title: lessonForm.title,
+          description: lessonForm.description,
+        });
+      } else {
+        await api.vocabulary.createLesson(selectedCourseId, {
+          title: lessonForm.title,
+          description: lessonForm.description,
+        });
+      }
+      setLessonForm({ id: '', title: '', description: '' });
+      loadLessons(selectedCourseId);
+    } catch { alert('Lỗi khi lưu bài học.'); }
+  }
+
+  async function handleDeleteLesson(lessonId: string, title: string) {
+    if (!confirm(`Xóa bài học "${title}"?\nTất cả từ vựng trong bài này sẽ bị gỡ khỏi bài (vẫn còn trong master dictionary).`)) return;
+    try {
+      await api.vocabulary.deleteLesson(selectedCourseId, lessonId);
+      if (selectedLessonId === lessonId) setSelectedLessonId('');
+      loadLessons(selectedCourseId);
+    } catch { alert('Lỗi khi xóa bài học.'); }
+  }
+
+  async function handleMoveLessonOrder(lessonId: string, direction: 'up' | 'down') {
+    const idx = lessons.findIndex(l => l.id === lessonId);
+    if (idx < 0) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= lessons.length) return;
+    const a = lessons[idx];
+    const b = lessons[swapIdx];
+    try {
+      await Promise.all([
+        api.vocabulary.updateLesson(selectedCourseId, a.id, { order_index: b.order_index }),
+        api.vocabulary.updateLesson(selectedCourseId, b.id, { order_index: a.order_index }),
+      ]);
+      loadLessons(selectedCourseId);
+    } catch { alert('Lỗi khi đổi thứ tự.'); }
+  }
+
   async function loadWords(courseId: string, sectionVal: string = '') {
+    if (!courseId) return;
     setWordsLoading(true);
     setWordPage(0);
     try {
@@ -226,14 +322,24 @@ export default function AdminVocabularyPage() {
       if (courseForm.id) await api.vocabulary.updateCourse(courseForm.id, payload);
       else await api.vocabulary.createCourse(payload);
       setCourseForm({ id: '', title: '', slug: '', description: '' });
-      loadCourses();
+      await refreshCourses();
     } catch { alert('Lỗi khi lưu khóa học.'); }
   }
 
   async function handleDeleteCourse(id: string) {
-    if (!confirm('Xóa khóa học này? Tất cả từ vựng trong đó cũng sẽ bị xóa.')) return;
-    try { await api.vocabulary.deleteCourse(id); loadCourses(); }
-    catch { alert('Lỗi khi xóa khóa học.'); }
+    if (!id) return;
+    if (!confirm('Xóa khóa học này? Các từ vựng sẽ được gỡ khỏi khóa học nhưng vẫn còn trong master dictionary.')) return;
+    try {
+      await api.vocabulary.deleteCourse(id);
+      if (selectedCourseId === id) {
+        setSelectedCourseId('');
+        setSelectedLessonId('');
+        setBulkLessonId('');
+      }
+      await refreshCourses();
+    } catch (err: any) {
+      alert(err?.message?.replace('API Error: ', '') || 'Lỗi khi xóa khóa học.');
+    }
   }
 
   function selectCourseForAction(courseId: string, tab: 'list' | 'add' | 'attach' | 'bulk') {
@@ -243,12 +349,14 @@ export default function AdminVocabularyPage() {
     setExportCourseId(courseId);
     setBulkDone(null);
     setAttachMessage('');
+    loadLessons(courseId);
     if (tab === 'add') {
       setVocabForm({
         id: '', word: '', definition: '', definition_vi: '', example: '', example_vi: '',
         topic: 'General', pronunciation: '', part_of_speech: 'N', level: 'A1',
         vocab_course_id: courseId, is_priority: false, is_academic: false,
       });
+      setVocabLessonId('');
     }
     if (tab === 'list') {
       setSelectedSection('');
@@ -264,7 +372,11 @@ export default function AdminVocabularyPage() {
       const { vocab_course_id: _ignoredCourseId, ...masterWord } = vocabForm;
       await api.vocabulary.upsert(masterWord);
       if (targetCourseId && masterWord.word) {
-        await api.vocabulary.bulkImport(targetCourseId, [{ word: masterWord.word }]);
+        if (vocabLessonId) {
+          await api.vocabulary.importWordsToLesson(targetCourseId, vocabLessonId, [{ word: masterWord.word }]);
+        } else {
+          await api.vocabulary.bulkImport(targetCourseId, [{ word: masterWord.word }]);
+        }
       }
       setVocabForm({ 
         id: '', word: '', definition: '', definition_vi: '', example: '', example_vi: '', 
@@ -323,7 +435,12 @@ export default function AdminVocabularyPage() {
       const importErrors: BulkImportResult['errors'] = [];
       for (let i = 0; i < validWords.length; i += CHUNK) {
         const chunk = validWords.slice(i, i + CHUNK);
-        const result = await api.vocabulary.bulkImport(bulkCourseId, chunk);
+        let result: BulkImportResult;
+        if (bulkLessonId) {
+          result = await api.vocabulary.importWordsToLesson(bulkCourseId, bulkLessonId, chunk);
+        } else {
+          result = await api.vocabulary.bulkImport(bulkCourseId, chunk);
+        }
         imported += result.mapped ?? result.count;
         processed += chunk.length;
         failed += result.failed || result.missing_count || 0;
@@ -383,7 +500,9 @@ export default function AdminVocabularyPage() {
     setAttachLoading(true);
     setAttachMessage('');
     try {
-      const result = await api.vocabulary.bulkImport(attachCourseId, selected.map((item) => ({ word: item.word })));
+      const result = attachLessonId
+        ? await api.vocabulary.importWordsToLesson(attachCourseId, attachLessonId, selected.map((item) => ({ word: item.word })))
+        : await api.vocabulary.bulkImport(attachCourseId, selected.map((item) => ({ word: item.word })));
       setAttachSelected({});
       setAttachMessage(`Mapped ${result.mapped ?? result.count} words. Missing ${result.missing_count || 0}.`);
       setSelectedCourseId(attachCourseId);
@@ -431,6 +550,7 @@ export default function AdminVocabularyPage() {
 
   const TABS = [
     { key: 'courses', label: 'Khóa Học' },
+    { key: 'lessons', label: '📚 Bài Học' },
     { key: 'list',    label: 'Danh Sách Từ' },
     { key: 'publish', label: `🚀 Phát Hành (${draftCount})` },
     { key: 'add',     label: 'Thêm Thủ Công' },
@@ -467,6 +587,130 @@ export default function AdminVocabularyPage() {
           </button>
         ))}
       </div>
+
+      {/* ── TAB: LESSONS ── */}
+      {activeTab === 'lessons' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Form tạo/sửa bài học */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm h-fit">
+            <h2 className="text-lg font-black text-slate-900 mb-6">
+              {lessonForm.id ? 'Cập nhật bài học' : 'Thêm bài học mới'}
+            </h2>
+
+            {/* Chọn khóa học */}
+            <div className="mb-4">
+              <label className="block text-xs font-black text-slate-400 uppercase mb-2">Khóa học</label>
+              <select
+                value={selectedCourseId}
+                onChange={e => { setSelectedCourseId(e.target.value); loadLessons(e.target.value); setLessonForm({ id: '', title: '', description: '' }); }}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-600"
+              >
+                {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </select>
+            </div>
+
+            <form onSubmit={handleSaveLesson} className="space-y-4">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase mb-2">Tên bài học *</label>
+                <input type="text" required
+                  value={lessonForm.title}
+                  onChange={e => setLessonForm({ ...lessonForm, title: e.target.value })}
+                  placeholder="VD: Unit 1 - Daily Routines"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase mb-2">Mô tả (tùy chọn)</label>
+                <textarea rows={2}
+                  value={lessonForm.description}
+                  onChange={e => setLessonForm({ ...lessonForm, description: e.target.value })}
+                  placeholder="Nội dung ngắn về bài học..."
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold"
+                />
+              </div>
+              <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-black rounded-xl text-sm hover:bg-indigo-700 transition-all">
+                {lessonForm.id ? 'Cập nhật' : 'Tạo bài học'}
+              </button>
+              {lessonForm.id && (
+                <button type="button"
+                  onClick={() => setLessonForm({ id: '', title: '', description: '' })}
+                  className="w-full py-2 text-slate-400 text-sm font-bold"
+                >Hủy chỉnh sửa</button>
+              )}
+            </form>
+          </div>
+
+          {/* Danh sách bài học */}
+          <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-black text-slate-900">
+                Bài học ({lessons.length}) — {courses.find(c => c.id === selectedCourseId)?.title || '...'}
+              </h2>
+              {lessonsLoading && (
+                <div className="animate-spin h-5 w-5 border-2 border-indigo-600 border-t-transparent rounded-full" />
+              )}
+            </div>
+
+            {lessons.length === 0 && !lessonsLoading ? (
+              <div className="text-center py-16 text-slate-400">
+                <p className="text-4xl mb-3">📚</p>
+                <p className="font-bold">Chưa có bài học nào.</p>
+                <p className="text-sm mt-1">Tạo bài học đầu tiên để chia nhỏ khối lượng từ vựng.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {lessons.map((lesson, idx) => (
+                  <div key={lesson.id}
+                    className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${selectedLessonId === lesson.id ? 'border-indigo-300 bg-indigo-50' : 'border-slate-100 bg-white hover:bg-slate-50'}`}
+                  >
+                    {/* Order badge */}
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 shrink-0">
+                      {idx + 1}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-slate-800 truncate">{lesson.title}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {lesson.word_count ?? 0} từ vựng
+                        {lesson.description ? ` · ${lesson.description}` : ''}
+                      </p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleMoveLessonOrder(lesson.id, 'up')}
+                        disabled={idx === 0}
+                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-xs font-black"
+                        title="Lên"
+                      >↑</button>
+                      <button
+                        onClick={() => handleMoveLessonOrder(lesson.id, 'down')}
+                        disabled={idx === lessons.length - 1}
+                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-xs font-black"
+                        title="Xuống"
+                      >↓</button>
+                      <button
+                        onClick={() => { setLessonForm({ id: lesson.id, title: lesson.title, description: lesson.description || '' }); }}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-xs font-black transition-all"
+                      >Sửa</button>
+                      <button
+                        onClick={() => { setSelectedLessonId(lesson.id); setBulkLessonId(lesson.id); setActiveTab('bulk'); }}
+                        className="px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-xs font-black transition-all"
+                      >+ Từ</button>
+                      <button
+                        onClick={() => handleDeleteLesson(lesson.id, lesson.title)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-red-50 hover:text-red-600 rounded-lg text-xs font-black transition-all"
+                      >Xóa</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── TAB: COURSES ── */}
       {activeTab === 'courses' && (
@@ -633,9 +877,17 @@ export default function AdminVocabularyPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-xs font-black text-slate-400 uppercase mb-2">Khóa Học Đích</label>
-              <select value={vocabForm.vocab_course_id || selectedCourseId} onChange={e => setVocabForm({ ...vocabForm, vocab_course_id: e.target.value })}
+              <select value={vocabForm.vocab_course_id || selectedCourseId} onChange={e => { setVocabForm({ ...vocabForm, vocab_course_id: e.target.value }); setVocabLessonId(''); loadLessons(e.target.value); }}
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-600">
                 {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase mb-2">Bai Hoc Dich</label>
+              <select value={vocabLessonId} onChange={e => setVocabLessonId(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-600">
+                <option value="">-- Khong gan bai hoc --</option>
+                {lessons.map(l => <option key={l.id} value={l.id}>{l.title} ({l.word_count ?? 0} tu)</option>)}
               </select>
             </div>
             <div>
@@ -705,10 +957,15 @@ export default function AdminVocabularyPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-[260px_1fr_auto] gap-3">
-              <select value={attachCourseId} onChange={e => setAttachCourseId(e.target.value)}
+            <div className="grid grid-cols-1 md:grid-cols-[220px_220px_1fr_auto] gap-3">
+              <select value={attachCourseId} onChange={e => { setAttachCourseId(e.target.value); setAttachLessonId(''); loadLessons(e.target.value); }}
                 className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-600">
                 {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </select>
+              <select value={attachLessonId} onChange={e => setAttachLessonId(e.target.value)}
+                className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-600">
+                <option value="">Khong gan bai</option>
+                {lessons.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
               </select>
               <input
                 value={attachQuery}
@@ -754,7 +1011,7 @@ export default function AdminVocabularyPage() {
 
             <button type="button" onClick={handleAttachSelected} disabled={attachLoading || !attachCourseId || Object.keys(attachSelected).length === 0}
               className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-sm rounded-xl transition-all shadow-sm">
-              {attachLoading ? 'Dang xu ly...' : `Gan ${Object.keys(attachSelected).length} tu vao khoa`}
+              {attachLoading ? 'Dang xu ly...' : `Gan ${Object.keys(attachSelected).length} tu vao ${attachLessonId ? 'bai hoc' : 'khoa'}`}
             </button>
           </div>
         </div>
@@ -778,12 +1035,23 @@ export default function AdminVocabularyPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase mb-2">Khóa Học Đích</label>
-                <select value={bulkCourseId} onChange={e => setBulkCourseId(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-600">
-                  {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                </select>
-                <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-2 text-xs font-black text-indigo-600 hover:bg-indigo-100">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase mb-2">Khóa Học Đích</label>
+                  <select value={bulkCourseId} onChange={e => { setBulkCourseId(e.target.value); setBulkLessonId(''); loadLessons(e.target.value); }} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-600">
+                    {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase mb-2">Bài Học Đích <span className="normal-case text-slate-300">(để trống = không gán bài)</span></label>
+                  <select value={bulkLessonId} onChange={e => setBulkLessonId(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-600">
+                    <option value="">-- Không gán bài học --</option>
+                    {lessons.filter(l => !bulkCourseId || true).map(l => (
+                      <option key={l.id} value={l.id}>{l.title} ({l.word_count ?? 0} từ)</option>
+                    ))}
+                  </select>
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-2 text-xs font-black text-indigo-600 hover:bg-indigo-100">
                   Upload file .json/.csv/.txt
                   <input type="file" accept=".json,.csv,.txt" onChange={handleBulkFileChange} className="hidden" />
                 </label>
